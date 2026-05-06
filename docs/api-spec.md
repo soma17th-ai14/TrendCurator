@@ -1,0 +1,649 @@
+# API 스펙 초안
+
+이 문서는 TrendCurator의 API 계약 초안입니다. 모든 모듈은 API 구현, 서비스 인터페이스, 프론트엔드 연동, 테스트 작성 시 이 문서를 공통 기준으로 참조합니다.
+
+## 1. 기본 정보
+
+### Base URL
+
+```text
+/api/v1
+```
+
+### 고정 데이터 소스
+
+```json
+["huggingface", "hackernews"]
+```
+
+### 공통 응답 형식
+
+```json
+{
+  "success": true,
+  "data": {},
+  "error": null
+}
+```
+
+### 공통 에러 형식
+
+```json
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "에러 설명"
+  }
+}
+```
+
+## 2. 사용자 프로필 API
+
+### 2.1 관심사 프로필 조회
+
+```http
+GET /profile
+```
+
+Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "keywords": ["LangGraph", "Multi-agent", "RAG"],
+    "language": "ko",
+    "digest_time": "09:00"
+  },
+  "error": null
+}
+```
+
+### 2.2 관심사 프로필 저장/수정
+
+```http
+PUT /profile
+```
+
+Request
+
+```json
+{
+  "keywords": ["LangGraph", "Multi-agent", "RAG"],
+  "language": "ko",
+  "digest_time": "09:00"
+}
+```
+
+Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Profile updated"
+  },
+  "error": null
+}
+```
+
+## 3. 데이터 수집 파이프라인 API
+
+### 3.1 수동 수집 실행
+
+```http
+POST /pipeline/collect
+```
+
+HuggingFace Daily Papers와 HackerNews에서 최신 AI Agent 관련 콘텐츠를 수집합니다.
+
+Request
+
+```json
+{
+  "date": "2026-05-06"
+}
+```
+
+내부 처리 흐름
+
+```text
+Collector
+-> Normalizer
+-> Relevance Filter
+-> Chunker
+-> Embedder
+-> ChromaDB 저장
+```
+
+Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "job_id": "collect_20260506_001",
+    "status": "running",
+    "sources": ["huggingface", "hackernews"]
+  },
+  "error": null
+}
+```
+
+### 3.2 수집 작업 상태 조회
+
+```http
+GET /pipeline/jobs/{job_id}
+```
+
+Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "job_id": "collect_20260506_001",
+    "status": "completed",
+    "collected_count": 86,
+    "filtered_count": 31,
+    "embedded_count": 31,
+    "failed_count": 1,
+    "source_stats": {
+      "huggingface": {
+        "collected_count": 42,
+        "filtered_count": 18
+      },
+      "hackernews": {
+        "collected_count": 44,
+        "filtered_count": 13
+      }
+    }
+  },
+  "error": null
+}
+```
+
+## 4. 문서 검색 API
+
+### 4.1 문서 검색
+
+```http
+POST /documents/search
+```
+
+Request
+
+```json
+{
+  "query": "멀티 에이전트 프레임워크 최신 동향",
+  "top_k": 10,
+  "date_from": "2026-05-01",
+  "date_to": "2026-05-06",
+  "sources": ["huggingface", "hackernews"],
+  "categories": ["agent", "rag", "multi-agent"]
+}
+```
+
+Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "rewritten_query": "recent multi-agent framework trends for AI agents",
+    "results": [
+      {
+        "document_id": "doc_001",
+        "title": "Example Daily Paper",
+        "source": "huggingface",
+        "url": "https://huggingface.co/papers/xxxx.xxxxx",
+        "published_at": "2026-05-05",
+        "similarity_score": 0.87,
+        "summary_preview": "멀티 에이전트 오케스트레이션 관련 최신 연구 요약"
+      }
+    ]
+  },
+  "error": null
+}
+```
+
+## 5. Daily Digest API
+
+### 5.1 Daily Digest 생성
+
+```http
+POST /digest/generate
+```
+
+Request
+
+```json
+{
+  "date": "2026-05-06",
+  "profile_based": true,
+  "top_k": 10
+}
+```
+
+내부 처리 흐름
+
+```text
+Daily Digest Retriever
+-> Digest Generator
+-> Groundedness Check
+-> Daily Digest 저장
+```
+
+Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "digest_id": "digest_20260506",
+    "status": "completed",
+    "item_count": 10,
+    "groundedness_score": 0.91
+  },
+  "error": null
+}
+```
+
+### 5.2 Daily Digest 조회
+
+```http
+GET /digest/{digest_id}
+```
+
+Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "digest_id": "digest_20260506",
+    "date": "2026-05-06",
+    "title": "AI Agent Daily Digest",
+    "items": [
+      {
+        "title": "논문 또는 게시글 제목",
+        "source": "huggingface",
+        "url": "https://huggingface.co/papers/xxxx.xxxxx",
+        "summary": "핵심 요약",
+        "key_points": [
+          "핵심 내용 1",
+          "핵심 내용 2"
+        ],
+        "contribution": "주요 기여",
+        "benchmark": "성능 수치 또는 실험 결과",
+        "critique": "기존 기술 대비 차별점 및 한계",
+        "tags": ["multi-agent", "rag"]
+      }
+    ],
+    "groundedness_score": 0.91
+  },
+  "error": null
+}
+```
+
+### 5.3 Daily Digest 목록 조회
+
+```http
+GET /digest?date_from=2026-05-01&date_to=2026-05-06
+```
+
+Response
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "digest_id": "digest_20260506",
+      "date": "2026-05-06",
+      "item_count": 10,
+      "groundedness_score": 0.91
+    }
+  ],
+  "error": null
+}
+```
+
+## 6. 온디맨드 질의 API
+
+### 6.1 사용자 질문 응답
+
+```http
+POST /query
+```
+
+Request
+
+```json
+{
+  "question": "최근 HuggingFace에서 주목받는 AI Agent 기술은?",
+  "top_k": 8,
+  "date_from": "2026-05-01",
+  "date_to": "2026-05-06"
+}
+```
+
+내부 처리 흐름
+
+```text
+Intent Router
+-> Query Rewriter
+-> Retriever
+-> LLM Generator
+-> Groundedness Check
+-> 실시간 응답
+```
+
+Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "intent": "general_query",
+    "answer": "최근 HuggingFace Daily Papers 기준으로는 ...",
+    "groundedness_score": 0.89,
+    "sources": [
+      {
+        "document_id": "doc_001",
+        "title": "Example Daily Paper",
+        "source": "huggingface",
+        "url": "https://huggingface.co/papers/xxxx.xxxxx"
+      }
+    ]
+  },
+  "error": null
+}
+```
+
+## 7. 트렌드 비교 API
+
+### 7.1 기간별 트렌드 비교
+
+```http
+POST /trends/compare
+```
+
+Request
+
+```json
+{
+  "question": "지난주 대비 이번 주 새로 등장한 AI Agent 기술은?",
+  "period_a": {
+    "start": "2026-04-22",
+    "end": "2026-04-28"
+  },
+  "period_b": {
+    "start": "2026-04-29",
+    "end": "2026-05-06"
+  },
+  "top_k": 15
+}
+```
+
+내부 처리 흐름
+
+```text
+Intent Router
+-> Date Range Parser
+-> Period Retriever
+-> Trend Comparator
+-> LLM Generator
+-> Groundedness Check
+-> 실시간 응답
+```
+
+Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "intent": "trend_comparison",
+    "period_a": {
+      "start": "2026-04-22",
+      "end": "2026-04-28",
+      "summary": "이전 기간에는 RAG 평가 자동화와 tool-use agent 관련 논의가 중심이었다."
+    },
+    "period_b": {
+      "start": "2026-04-29",
+      "end": "2026-05-06",
+      "summary": "비교 기간에는 multi-agent orchestration과 memory agent 관련 콘텐츠가 증가했다."
+    },
+    "new_trends": [
+      "멀티 에이전트 오케스트레이션",
+      "장기 메모리 기반 에이전트",
+      "에이전트 평가 자동화"
+    ],
+    "declining_trends": [
+      "단순 ReAct 구조"
+    ],
+    "analysis": "이번 주에는 단일 에이전트 성능 개선보다 여러 에이전트 간 역할 분담과 상태 관리가 더 강조되었다.",
+    "groundedness_score": 0.88,
+    "sources": [
+      {
+        "document_id": "doc_010",
+        "title": "Example Trend Source",
+        "source": "hackernews",
+        "url": "https://news.ycombinator.com/item?id=000000",
+        "period": "period_b"
+      }
+    ]
+  },
+  "error": null
+}
+```
+
+## 8. Groundedness Check API
+
+### 8.1 응답 근거성 검증
+
+```http
+POST /groundedness/check
+```
+
+Request
+
+```json
+{
+  "answer": "생성된 응답 내용",
+  "source_document_ids": ["doc_001", "doc_002"]
+}
+```
+
+Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "score": 0.92,
+    "passed": true,
+    "threshold": 0.8,
+    "fallback_required": false
+  },
+  "error": null
+}
+```
+
+## 9. Streamlit UI 통합 API
+
+### 9.1 대시보드 데이터 조회
+
+```http
+GET /dashboard
+```
+
+Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "latest_digest": {
+      "digest_id": "digest_20260506",
+      "date": "2026-05-06",
+      "item_count": 10
+    },
+    "collection_status": {
+      "last_collected_at": "2026-05-06T09:00:00",
+      "collected_count": 86,
+      "filtered_count": 31
+    },
+    "source_stats": {
+      "huggingface": 18,
+      "hackernews": 13
+    },
+    "top_tags": [
+      {
+        "tag": "multi-agent",
+        "count": 12
+      },
+      {
+        "tag": "rag",
+        "count": 9
+      }
+    ]
+  },
+  "error": null
+}
+```
+
+## 10. 스케줄러 API
+
+### 10.1 정기 발행 스케줄 조회
+
+```http
+GET /scheduler
+```
+
+Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "enabled": true,
+    "time": "09:00",
+    "timezone": "Asia/Seoul",
+    "sources": ["huggingface", "hackernews"],
+    "last_run_at": "2026-05-06T09:00:00"
+  },
+  "error": null
+}
+```
+
+### 10.2 정기 발행 스케줄 수정
+
+```http
+PUT /scheduler
+```
+
+Request
+
+```json
+{
+  "enabled": true,
+  "time": "09:00",
+  "timezone": "Asia/Seoul"
+}
+```
+
+Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Scheduler updated"
+  },
+  "error": null
+}
+```
+
+## 11. 주요 데이터 모델
+
+### Document
+
+`SKILLS.md`의 기본 Document 필드 중 `date`는 API 모델에서 `published_at`을 우선 사용하고, 발행일이 없는 경우 `collected_at` 기준 날짜로 해석합니다.
+
+```json
+{
+  "document_id": "doc_001",
+  "title": "string",
+  "source": "huggingface | hackernews",
+  "url": "string",
+  "published_at": "YYYY-MM-DD",
+  "collected_at": "YYYY-MM-DDTHH:mm:ss",
+  "category": "agent | rag | llm | framework | benchmark",
+  "tags": ["string"],
+  "content": "string",
+  "summary": "string",
+  "metadata": {
+    "author": "string",
+    "score": 123,
+    "comments_count": 45
+  }
+}
+```
+
+### DigestItem
+
+```json
+{
+  "title": "string",
+  "source": "huggingface | hackernews",
+  "url": "string",
+  "summary": "string",
+  "key_points": ["string"],
+  "contribution": "string",
+  "benchmark": "string",
+  "critique": "string",
+  "tags": ["string"]
+}
+```
+
+### TrendComparison
+
+```json
+{
+  "period_a_summary": "string",
+  "period_b_summary": "string",
+  "new_trends": ["string"],
+  "declining_trends": ["string"],
+  "analysis": "string",
+  "sources": []
+}
+```
+
+## 12. 주요 에러 코드
+
+| Code | 설명 |
+| --- | --- |
+| `PROFILE_NOT_FOUND` | 관심사 프로필이 설정되지 않음 |
+| `HUGGINGFACE_COLLECTOR_FAILED` | HuggingFace Daily Papers 수집 실패 |
+| `HACKERNEWS_COLLECTOR_FAILED` | HackerNews 수집 실패 |
+| `NORMALIZATION_FAILED` | 공통 Document 스키마 변환 실패 |
+| `VECTOR_DB_ERROR` | ChromaDB 저장 또는 검색 실패 |
+| `INSUFFICIENT_DATA` | 트렌드 비교에 필요한 기간별 데이터 부족 |
+| `GROUNDING_FAILED` | Groundedness Check 기준 미달 |
+| `LLM_GENERATION_FAILED` | LLM 응답 생성 실패 |
+| `INVALID_DATE_RANGE` | 날짜 범위 입력 오류 |
+| `SCHEDULER_ERROR` | 정기 발행 스케줄러 오류 |
+
+## 13. 역할 분담 기준 API 매핑
+
+| 담당 모듈 | 관련 API |
+| --- | --- |
+| 데이터 수집 및 정규화 파이프라인 | `POST /pipeline/collect`, `GET /pipeline/jobs/{job_id}` |
+| VectorDB, 임베딩, 검색 인덱스 | `POST /documents/search` |
+| 정기 발행 Digest 생성 모듈 | `POST /digest/generate`, `GET /digest/{digest_id}`, `GET /digest` |
+| 온디맨드 질의 및 트렌드 비교 모듈 | `POST /query`, `POST /trends/compare` |
+| UI, 통합, 검증, 배포 | `GET /dashboard`, `POST /groundedness/check`, `GET /scheduler`, `PUT /scheduler` |
