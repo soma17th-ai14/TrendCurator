@@ -1,0 +1,1 @@
+"""TrendCurator application package."""

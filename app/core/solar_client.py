@@ -1,0 +1,84 @@
+"""Minimal Solar API client boundary."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+import json
+from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+
+from app.core.settings import SolarSettings
+
+
+@dataclass(frozen=True)
+class SolarMessage:
+    role: str
+    content: str
+
+
+class SolarClient:
+    """Small chat-completions client for Solar models.
+
+    The request shape intentionally follows the OpenAI-compatible chat
+    completions convention commonly used by Solar-compatible endpoints.
+    """
+
+    def __init__(self, settings: SolarSettings, timeout_seconds: int = 30) -> None:
+        self.settings = settings
+        self.timeout_seconds = timeout_seconds
+
+    def chat_json(
+        self,
+        *,
+        model: str,
+        messages: list[SolarMessage],
+        temperature: float = 0.2,
+    ) -> dict[str, Any]:
+        content = self.chat_text(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            response_format={"type": "json_object"},
+        )
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("Solar 응답을 JSON으로 해석할 수 없습니다.") from exc
+
+    def chat_text(
+        self,
+        *,
+        model: str,
+        messages: list[SolarMessage],
+        temperature: float = 0.2,
+        response_format: dict[str, str] | None = None,
+    ) -> str:
+        payload: dict[str, Any] = {
+            "model": model,
+            "messages": [message.__dict__ for message in messages],
+            "temperature": temperature,
+        }
+        if response_format:
+            payload["response_format"] = response_format
+
+        request = Request(
+            url=f"{self.settings.base_url.rstrip('/')}/chat/completions",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {self.settings.api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+
+        try:
+            with urlopen(request, timeout=self.timeout_seconds) as response:
+                body = json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"Solar API 요청이 실패했습니다: {exc.code} {detail}") from exc
+        except URLError as exc:
+            raise RuntimeError(f"Solar API에 연결할 수 없습니다: {exc.reason}") from exc
+
+        return body["choices"][0]["message"]["content"]

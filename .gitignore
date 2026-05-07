@@ -1,7 +1,10 @@
 .env
+.env.*
+!.env.example
 __pycache__/
 *.pyc
 .venv/
 chroma_data/
 .pytest_cache/
+pytest-cache-files-*/
 .DS_Store
