@@ -36,6 +36,21 @@ class RelevanceDecision:
     matched_keywords: list[str]
     reason: str
 
+    def to_response(self) -> dict:
+        """Return the temporary internal response shape for this filter.
+
+        This shape is not part of docs/api-spec.md yet. It should be reviewed
+        and adjusted when the relevance filter response contract is finalized.
+        """
+
+        return {
+            "document_id": self.document.document_id,
+            "is_relevant": self.is_relevant,
+            "score": self.score,
+            "matched_keywords": self.matched_keywords,
+            "reason": self.reason,
+        }
+
 
 @dataclass(frozen=True)
 class SolarMiniRelevanceFilter:

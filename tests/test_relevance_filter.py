@@ -28,6 +28,13 @@ def test_solar_mini_relevance_filter_accepts_agent_document():
     assert decision.is_relevant is True
     assert decision.score >= 0.18
     assert "agent" in decision.matched_keywords
+    assert decision.to_response() == {
+        "document_id": "doc_001",
+        "is_relevant": True,
+        "score": decision.score,
+        "matched_keywords": decision.matched_keywords,
+        "reason": decision.reason,
+    }
 
 
 def test_solar_mini_relevance_filter_rejects_unrelated_document():

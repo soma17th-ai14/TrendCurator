@@ -1,0 +1,81 @@
+"""Evaluate relevance filtering on labeled sample documents."""
+
+from __future__ import annotations
+
+from pathlib import Path
+import json
+import os
+import sys
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+ENV_PATH = ROOT_DIR / ".env"
+SAMPLES_PATH = ROOT_DIR / "data" / "samples" / "relevance_eval_documents.json"
+
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from app.agents.solar_relevance_filter import SolarMiniLLMRelevanceFilter
+from app.core.models import Document
+from app.core.settings import get_solar_settings
+
+
+def load_local_env(path: Path = ENV_PATH) -> None:
+    if not path.exists():
+        return
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+def load_samples(path: Path = SAMPLES_PATH) -> list[dict]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def main() -> None:
+    load_local_env()
+    settings = get_solar_settings()
+    relevance_filter = SolarMiniLLMRelevanceFilter.from_settings(settings)
+    samples = load_samples()
+
+    correct = 0
+    false_positive = 0
+    false_negative = 0
+    rows = []
+
+    for sample in samples:
+        document = Document(**sample["document"])
+        expected = bool(sample["expected_is_relevant"])
+        decision = relevance_filter.evaluate(document)
+        predicted = decision.is_relevant
+        correct += int(predicted == expected)
+        false_positive += int(predicted and not expected)
+        false_negative += int(not predicted and expected)
+        rows.append(
+            {
+                **decision.to_response(),
+                "expected_is_relevant": expected,
+                "passed": predicted == expected,
+            }
+        )
+
+    total = len(samples)
+    print("Solar Mini relevance evaluation")
+    print(f"total: {total}")
+    print(f"accuracy: {correct / total:.3f}")
+    print(f"false_positive: {false_positive}")
+    print(f"false_negative: {false_negative}")
+    print("failed_documents:")
+    for row in rows:
+        if not row["passed"]:
+            print(
+                f"- {row['document_id']}: expected={row['expected_is_relevant']} "
+                f"predicted={row['is_relevant']} score={row['score']} reason={row['reason']}"
+            )
+
+
+if __name__ == "__main__":
+    main()

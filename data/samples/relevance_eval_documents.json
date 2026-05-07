@@ -1,0 +1,386 @@
+[
+  {
+    "document": {
+      "document_id": "eval_rel_001",
+      "title": "Beyond Rule-Based Workflows: An Information-Flow-Orchestrated Multi-Agents Paradigm via Agent-to-Agent Communication from CORAL",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2601.09883",
+      "published_at": "2026-01-14",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "agent",
+      "tags": ["multi-agent", "workflow", "orchestration"],
+      "content": "A multi-agent system uses information-flow orchestration and agent-to-agent communication instead of fixed rule-based workflows.",
+      "summary": "Multi-agent workflow orchestration paper.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": true
+  },
+  {
+    "document": {
+      "document_id": "eval_rel_002",
+      "title": "Spec Kit Agents: Context-Grounded Agentic Workflows",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2604.05278",
+      "published_at": "2026-04-07",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "agent",
+      "tags": ["coding-agent", "workflow", "validation"],
+      "content": "Spec Kit Agents describes context-grounded multi-agent workflows for software development with validation hooks.",
+      "summary": "Agentic workflow for coding agents.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": true
+  },
+  {
+    "document": {
+      "document_id": "eval_rel_003",
+      "title": "ClawMark: A Living-World Benchmark for Multi-Turn, Multi-Day, Multimodal Coworker Agents",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2604.23781",
+      "published_at": "2026-04-26",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "benchmark",
+      "tags": ["agent", "benchmark", "multimodal"],
+      "content": "A benchmark evaluates language-model coworker agents over multi-day workflows and changing environment states.",
+      "summary": "Benchmark for persistent coworker agents.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": true
+  },
+  {
+    "document": {
+      "document_id": "eval_rel_004",
+      "title": "Claw-Eval-Live: A Live Agent Benchmark for Evolving Real-World Workflows",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2604.28139",
+      "published_at": "2026-04-30",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "benchmark",
+      "tags": ["agent", "workflow", "evaluation"],
+      "content": "A live benchmark evaluates workflow agents against evolving real-world task demands and execution logs.",
+      "summary": "Live benchmark for workflow agents.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": true
+  },
+  {
+    "document": {
+      "document_id": "eval_rel_005",
+      "title": "Rethinking the Value of Multi-Agent Workflow: A Strong Single Agent Baseline",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2601.12307",
+      "published_at": "2026-01-18",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "agent",
+      "tags": ["multi-agent", "workflow", "baseline"],
+      "content": "The paper compares multi-agent workflows with a strong single-agent baseline and analyzes efficiency tradeoffs.",
+      "summary": "Multi-agent workflow comparison.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": true
+  },
+  {
+    "document": {
+      "document_id": "eval_rel_006",
+      "title": "Beyond RAG for Agent Memory: Retrieval by Decoupling and Aggregation",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2602.02007",
+      "published_at": "2026-02-02",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "rag",
+      "tags": ["agent", "memory", "rag"],
+      "content": "The paper studies retrieval for agent memory, where dialogue streams differ from ordinary heterogeneous RAG corpora.",
+      "summary": "RAG retrieval for agent memory.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": true
+  },
+  {
+    "document": {
+      "document_id": "eval_rel_007",
+      "title": "MASFactory: A Graph-centric Framework for Orchestrating LLM-Based Multi-Agent Systems with Vibe Graphing",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2603.06007",
+      "published_at": "2026-03-06",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "framework",
+      "tags": ["multi-agent", "framework", "orchestration"],
+      "content": "A graph-centric framework compiles natural-language intent into executable multi-agent workflows.",
+      "summary": "Framework for orchestrating multi-agent systems.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": true
+  },
+  {
+    "document": {
+      "document_id": "eval_rel_008",
+      "title": "Memory for Autonomous LLM Agents: Mechanisms, Evaluation, and Emerging Frontiers",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2603.07670",
+      "published_at": "2026-03-08",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "agent",
+      "tags": ["agent", "memory", "survey"],
+      "content": "A survey covers memory mechanisms, evaluation, and emerging directions for autonomous LLM agents.",
+      "summary": "Survey of memory for autonomous agents.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": true
+  },
+  {
+    "document": {
+      "document_id": "eval_rel_009",
+      "title": "Multi-User Large Language Model Agents",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2604.08567",
+      "published_at": "2026-03-19",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "agent",
+      "tags": ["agent", "multi-user", "coordination"],
+      "content": "The paper studies agents that must coordinate among multiple users with conflicting objectives and privacy constraints.",
+      "summary": "Multi-user LLM agent coordination.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": true
+  },
+  {
+    "document": {
+      "document_id": "eval_rel_010",
+      "title": "AgentVista: Evaluating Multimodal Agents in Ultra-Challenging Realistic Visual Scenarios",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2602.23166",
+      "published_at": "2026-02-26",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "benchmark",
+      "tags": ["agent", "multimodal", "benchmark"],
+      "content": "A benchmark evaluates multimodal agents that perform long-horizon tool interactions across realistic scenarios.",
+      "summary": "Multimodal agent benchmark.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": true
+  },
+  {
+    "document": {
+      "document_id": "eval_rel_011",
+      "title": "AgentConductor: Topology Evolution for Multi-Agent Competition-Level Code Generation",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2602.17100",
+      "published_at": "2026-02-19",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "agent",
+      "tags": ["multi-agent", "code-generation", "orchestrator"],
+      "content": "The method optimizes multi-agent topologies for competition-level code generation through an LLM-based orchestrator.",
+      "summary": "Multi-agent topology optimization for coding.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": true
+  },
+  {
+    "document": {
+      "document_id": "eval_rel_012",
+      "title": "SoK: Agentic Retrieval-Augmented Generation (RAG): Taxonomy, Architectures, Evaluation, and Research Directions",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2603.07379",
+      "published_at": "2026-03-07",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "rag",
+      "tags": ["agentic-rag", "architecture", "evaluation"],
+      "content": "Agentic RAG is framed as sequential decision-making with iterative retrieval, memory, and reliability concerns.",
+      "summary": "Taxonomy and evaluation of Agentic RAG.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": true
+  },
+  {
+    "document": {
+      "document_id": "eval_irrel_001",
+      "title": "PixelDiT: Pixel Diffusion Transformers for Image Generation",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2511.20645",
+      "published_at": "2025-11-25",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "llm",
+      "tags": ["image-generation", "diffusion"],
+      "content": "A pixel-space diffusion transformer improves image and text-to-image generation without a pretrained autoencoder.",
+      "summary": "Image generation diffusion model.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": false
+  },
+  {
+    "document": {
+      "document_id": "eval_irrel_002",
+      "title": "StructDiff: A Structure-Preserving and Spatially Controllable Diffusion Model for Single-Image Generation",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2604.12575",
+      "published_at": "2026-04-14",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "llm",
+      "tags": ["image-generation", "diffusion"],
+      "content": "A single-scale diffusion model preserves structural layout for controllable single-image generation.",
+      "summary": "Diffusion model for image generation.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": false
+  },
+  {
+    "document": {
+      "document_id": "eval_irrel_003",
+      "title": "One-step Latent-free Image Generation with Pixel Mean Flows",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2601.22158",
+      "published_at": "2026-01-29",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "llm",
+      "tags": ["image-generation", "flow-model"],
+      "content": "Pixel MeanFlow introduces one-step latent-free image generation at multiple ImageNet resolutions.",
+      "summary": "Image generation flow model.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": false
+  },
+  {
+    "document": {
+      "document_id": "eval_irrel_004",
+      "title": "UltraImage: Rethinking Resolution Extrapolation in Image Diffusion Transformers",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2512.04504",
+      "published_at": "2025-12-04",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "llm",
+      "tags": ["image-generation", "diffusion-transformer"],
+      "content": "The framework improves high-resolution image generation by addressing repetition and quality degradation.",
+      "summary": "High-resolution image diffusion framework.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": false
+  },
+  {
+    "document": {
+      "document_id": "eval_irrel_005",
+      "title": "Nucleus-Image: Sparse MoE for Image Generation",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2604.12163",
+      "published_at": "2026-04-14",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "llm",
+      "tags": ["image-generation", "moe"],
+      "content": "A sparse mixture-of-experts diffusion transformer improves text-to-image generation efficiency and quality.",
+      "summary": "Sparse MoE image generation model.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": false
+  },
+  {
+    "document": {
+      "document_id": "eval_irrel_006",
+      "title": "DreamLite: A Lightweight On-Device Unified Model for Image Generation and Editing",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2603.28713",
+      "published_at": "2026-03-30",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "llm",
+      "tags": ["image-generation", "on-device"],
+      "content": "A compact on-device diffusion model supports text-to-image generation and text-guided editing.",
+      "summary": "On-device image generation and editing model.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": false
+  },
+  {
+    "document": {
+      "document_id": "eval_irrel_007",
+      "title": "Creative Image Generation with Diffusion Model",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2601.22125",
+      "published_at": "2026-01-29",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "llm",
+      "tags": ["image-generation", "diffusion"],
+      "content": "The method drives diffusion models toward low-probability image regions to produce more creative visual outputs.",
+      "summary": "Creative image generation with diffusion.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": false
+  },
+  {
+    "document": {
+      "document_id": "eval_irrel_008",
+      "title": "DiffiT: Diffusion Vision Transformers for Image Generation",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2312.02139",
+      "published_at": "2023-12-04",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "llm",
+      "tags": ["image-generation", "vision-transformer"],
+      "content": "A diffusion model with vision transformers improves image generation using hierarchical architecture and time-dependent attention.",
+      "summary": "Vision transformer architecture for image diffusion.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": false
+  },
+  {
+    "document": {
+      "document_id": "eval_irrel_009",
+      "title": "SSDD: Single-Step Diffusion Decoder for Efficient Image Tokenization",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2510.04961",
+      "published_at": "2025-10-06",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "llm",
+      "tags": ["image-tokenization", "diffusion"],
+      "content": "A single-step diffusion decoder improves reconstruction quality and sampling speed for image tokenization.",
+      "summary": "Diffusion decoder for image tokenization.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": false
+  },
+  {
+    "document": {
+      "document_id": "eval_irrel_010",
+      "title": "VibeVoice ASR",
+      "source": "huggingface",
+      "url": "https://huggingface.co/docs/transformers/model_doc/vibevoice_asr",
+      "published_at": "2026-03-02",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "llm",
+      "tags": ["speech-recognition", "audio"],
+      "content": "An automatic speech recognition model processes long audio using acoustic and semantic tokenizers with a language decoder.",
+      "summary": "Speech recognition model documentation.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": false
+  },
+  {
+    "document": {
+      "document_id": "eval_irrel_011",
+      "title": "Cohere Transcribe 03 2026 automatic speech recognition model",
+      "source": "huggingface",
+      "url": "https://huggingface.co/models?other=automatic-speech-recognition",
+      "published_at": "2026-03-01",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "llm",
+      "tags": ["speech-recognition", "model"],
+      "content": "A model listing highlights automatic speech recognition systems for audio transcription workloads.",
+      "summary": "Automatic speech recognition model listing.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": false
+  },
+  {
+    "document": {
+      "document_id": "eval_irrel_012",
+      "title": "Autoregressive Model Beats Diffusion: Llama for Scalable Image Generation",
+      "source": "huggingface",
+      "url": "https://huggingface.co/papers/2406.06525",
+      "published_at": "2024-06-10",
+      "collected_at": "2026-05-08T09:00:00",
+      "category": "llm",
+      "tags": ["image-generation", "autoregressive"],
+      "content": "LlamaGen applies next-token prediction to visual generation and reports image generation performance.",
+      "summary": "Autoregressive image generation model.",
+      "metadata": {"label_source": "web_search"}
+    },
+    "expected_is_relevant": false
+  }
+]
