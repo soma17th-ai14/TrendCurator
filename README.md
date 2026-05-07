@@ -71,6 +71,34 @@ TrendCurator는 AI 에이전트 관련 최신 정보를 자동 수집하고, 검
 - `SKILLS.md`: 팀 공통 개발 규칙과 아키텍처 기준을 정의합니다.
 - `CONTRIBUTING.md`: 브랜치, PR, 리뷰, 커밋 규칙을 정의합니다.
 
+## 로컬 환경변수 설정
+
+Solar API를 사용하는 모듈은 환경변수에서 키와 모델 설정을 읽습니다. 공개 레포에는 실제 API 키를 커밋하지 않습니다.
+
+1. `.env.example`을 참고해 레포 루트에 `.env` 파일을 만듭니다.
+2. `.env`에 개인 또는 팀에서 발급받은 Upstage API 키를 입력합니다.
+
+```env
+SOLAR_API_KEY=여기에_Upstage_API_Key
+SOLAR_BASE_URL=https://api.upstage.ai/v1
+SOLAR_MINI_MODEL=solar-mini
+SOLAR_PRO2_MODEL=solar-pro2
+```
+
+`.env`와 `.env.*` 파일은 `.gitignore`에 포함되어 있어 커밋 대상이 아닙니다. `.env.example`에는 키 이름과 기본 설정만 남깁니다.
+
+Solar Mini 관련성 필터의 실제 API 연결을 확인하려면 다음 명령을 실행합니다.
+
+```powershell
+python scripts/smoke_solar_relevance.py
+```
+
+라벨된 샘플 문서 기준으로 필터 성능을 확인하려면 다음 명령을 실행합니다. 이 명령은 실제 Solar API를 호출하므로 API 사용량과 쿼터를 소모합니다.
+
+```powershell
+python scripts/evaluate_relevance_samples.py
+```
+
 ## 팀 역할 분담
 
 - 데이터 수집: 소스 발굴, 수집 전략, 수집 프로필, 수집 안정성을 담당합니다.
