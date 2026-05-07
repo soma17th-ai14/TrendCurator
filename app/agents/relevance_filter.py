@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 
-from app.core.models import Document
+from app.core.models import NormalizedDocument
 
 
 DEFAULT_AGENT_KEYWORDS = [
@@ -30,7 +30,7 @@ DEFAULT_AGENT_KEYWORDS = [
 
 @dataclass(frozen=True)
 class RelevanceDecision:
-    document: Document
+    document: NormalizedDocument
     is_relevant: bool
     score: float
     matched_keywords: list[str]
@@ -44,7 +44,7 @@ class RelevanceDecision:
         """
 
         return {
-            "document_id": self.document.document_id,
+            "doc_id": self.document.doc_id,
             "is_relevant": self.is_relevant,
             "score": self.score,
             "matched_keywords": self.matched_keywords,
@@ -64,7 +64,7 @@ class SolarMiniRelevanceFilter:
     keywords: tuple[str, ...] = tuple(DEFAULT_AGENT_KEYWORDS)
     threshold: float = 0.18
 
-    def evaluate(self, document: Document) -> RelevanceDecision:
+    def evaluate(self, document: NormalizedDocument) -> RelevanceDecision:
         text = document.searchable_text.lower()
         matched = [keyword for keyword in self.keywords if self._contains_keyword(text, keyword)]
         score = self._score(document=document, matched_count=len(matched))
@@ -82,17 +82,20 @@ class SolarMiniRelevanceFilter:
             reason=reason,
         )
 
-    def filter(self, documents: list[Document]) -> list[RelevanceDecision]:
+    def filter(self, documents: list[NormalizedDocument]) -> list[RelevanceDecision]:
         return [decision for decision in map(self.evaluate, documents) if decision.is_relevant]
 
-    def _score(self, document: Document, matched_count: int) -> float:
+    def _score(self, document: NormalizedDocument, matched_count: int) -> float:
         keyword_score = min(matched_count * 0.08, 0.72)
-        category_score = 0.18 if document.category in {"agent", "rag", "framework"} else 0.0
-        tag_score = min(len(document.tags) * 0.02, 0.1)
-        summary_score = 0.08 if document.summary else 0.0
-        return min(keyword_score + category_score + tag_score + summary_score, 1.0)
+        category_score = 0.18 if self._category_hint_matches(document.category_hint) else 0.0
+        metadata_score = 0.04 if document.metadata else 0.0
+        return min(keyword_score + category_score + metadata_score, 1.0)
 
     def _contains_keyword(self, text: str, keyword: str) -> bool:
         escaped = re.escape(keyword.lower())
         pattern = rf"(?<![a-z0-9]){escaped}(?![a-z0-9])"
         return re.search(pattern, text) is not None
+
+    def _category_hint_matches(self, category_hint: str) -> bool:
+        text = category_hint.lower()
+        return any(self._contains_keyword(text, keyword) for keyword in self.keywords)

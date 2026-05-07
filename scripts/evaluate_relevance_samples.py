@@ -18,7 +18,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from app.agents.solar_relevance_filter import SolarMiniLLMRelevanceFilter
-from app.core.models import Document
+from app.core.models import NormalizedDocument
 from app.core.settings import get_solar_settings
 
 
@@ -50,7 +50,7 @@ def main() -> None:
     rows = []
 
     for sample in samples:
-        document = Document(**sample["document"])
+        document = NormalizedDocument(**sample["document"])
         expected = bool(sample["expected_is_relevant"])
         decision = relevance_filter.evaluate(document)
         predicted = decision.is_relevant
@@ -75,7 +75,7 @@ def main() -> None:
     for row in rows:
         if not row["passed"]:
             print(
-                f"- {row['document_id']}: expected={row['expected_is_relevant']} "
+                f"- {row['doc_id']}: expected={row['expected_is_relevant']} "
                 f"predicted={row['is_relevant']} score={row['score']} reason={row['reason']}"
             )
 

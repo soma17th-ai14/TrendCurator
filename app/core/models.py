@@ -42,6 +42,44 @@ class Document:
 
 
 @dataclass(frozen=True)
+class NormalizedDocument:
+    """Normalizer가 Chunker로 넘기는 내부 문서 계약입니다.
+
+    외부 API 응답용 `Document`와 달리, 원문 추적과 중복 제거에 필요한
+    `external_id`, `content_hash`, `raw_text`를 유지합니다.
+    """
+
+    doc_id: str
+    source: SourceName
+    title: str
+    url: str
+    published_date: str
+    raw_text: str
+    category_hint: str
+    external_id: str
+    content_hash: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def searchable_text(self) -> str:
+        metadata_terms = []
+        authors = self.metadata.get("authors")
+        if isinstance(authors, list):
+            metadata_terms.extend(str(author) for author in authors)
+
+        return " ".join(
+            part
+            for part in [
+                self.title,
+                self.raw_text,
+                self.category_hint,
+                " ".join(metadata_terms),
+            ]
+            if part
+        )
+
+
+@dataclass(frozen=True)
 class DigestItem:
     """docs/api-spec.md의 Daily Digest 항목 계약입니다."""
 

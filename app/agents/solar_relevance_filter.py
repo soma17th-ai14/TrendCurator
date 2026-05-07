@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from app.agents.relevance_filter import RelevanceDecision, SolarMiniRelevanceFilter
-from app.core.models import Document
+from app.core.models import NormalizedDocument
 from app.core.settings import SolarSettings
 from app.core.solar_client import SolarClient, SolarMessage
 
@@ -34,7 +34,7 @@ class SolarMiniLLMRelevanceFilter:
     def from_settings(cls, settings: SolarSettings) -> "SolarMiniLLMRelevanceFilter":
         return cls(client=SolarClient(settings), settings=settings)
 
-    def evaluate(self, document: Document) -> RelevanceDecision:
+    def evaluate(self, document: NormalizedDocument) -> RelevanceDecision:
         # Solar 응답이 일부 필드를 누락하거나 타입이 흔들려도
         # 파이프라인이 깨지지 않도록 로컬 fallback 판정을 기본값으로 사용합니다.
         result = self.client.chat_json(
@@ -58,24 +58,37 @@ class SolarMiniLLMRelevanceFilter:
         if not isinstance(matched_keywords, list):
             matched_keywords = fallback.matched_keywords
 
+        parsed_is_relevant = self._parse_bool(result.get("is_relevant"), fallback.is_relevant)
+        is_relevant = parsed_is_relevant and score >= self.fallback_filter.threshold
+
         return RelevanceDecision(
             document=document,
-            is_relevant=bool(result.get("is_relevant", fallback.is_relevant)),
+            is_relevant=is_relevant,
             score=round(score, 4),
             matched_keywords=[str(keyword) for keyword in matched_keywords],
             reason=str(result.get("reason", fallback.reason)),
         )
 
-    def filter(self, documents: list[Document]) -> list[RelevanceDecision]:
+    def filter(self, documents: list[NormalizedDocument]) -> list[RelevanceDecision]:
         return [decision for decision in map(self.evaluate, documents) if decision.is_relevant]
 
-    def _format_document(self, document: Document) -> str:
+    def _format_document(self, document: NormalizedDocument) -> str:
         return (
             f"title: {document.title}\n"
             f"source: {document.source}\n"
-            f"published_at: {document.published_at}\n"
-            f"category: {document.category}\n"
-            f"tags: {', '.join(document.tags)}\n"
-            f"summary: {document.summary}\n"
-            f"content:\n{document.content}"
+            f"published_date: {document.published_date}\n"
+            f"category_hint: {document.category_hint}\n"
+            f"external_id: {document.external_id}\n"
+            f"raw_text:\n{document.raw_text}"
         )
+
+    def _parse_bool(self, value: object, fallback: bool) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            lowered = value.strip().lower()
+            if lowered == "true":
+                return True
+            if lowered == "false":
+                return False
+        return fallback

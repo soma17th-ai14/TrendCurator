@@ -18,7 +18,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from app.agents.solar_relevance_filter import SolarMiniLLMRelevanceFilter
-from app.core.models import Document
+from app.core.models import NormalizedDocument
 from app.core.settings import get_solar_settings
 
 
@@ -34,22 +34,21 @@ def load_local_env(path: Path = ENV_PATH) -> None:
         os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
-def make_sample_document() -> Document:
-    return Document(
-        document_id="smoke_001",
+def make_sample_document() -> NormalizedDocument:
+    return NormalizedDocument(
+        doc_id="smoke_001",
         title="LangGraph multi-agent workflow benchmark",
         source="huggingface",
         url="https://example.com/smoke",
-        published_at="2026-05-08",
-        collected_at="2026-05-08T09:00:00",
-        category="agent",
-        tags=["langgraph", "multi-agent", "workflow"],
-        content=(
+        published_date="2026-05-08",
+        raw_text=(
             "This paper evaluates multi-agent orchestration, tool-use agents, "
             "memory, and workflow planning."
         ),
-        summary="A benchmark for agent workflow orchestration.",
-        metadata={},
+        category_hint="multi-agent workflow",
+        external_id="smoke_001",
+        content_hash="hash_smoke_001",
+        metadata={"authors": ["Smoke Author"]},
     )
 
 
