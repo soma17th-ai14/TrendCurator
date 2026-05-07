@@ -43,7 +43,7 @@
 
 ## Git 및 PR 작업 기준
 
-- 브랜치 전략은 `main`, `dev`, `feature/<short-description>`를 사용합니다.
+- 브랜치 전략은 `main`, `feature/<short-description>`를 사용합니다.
 - 커밋 메시지는 한국어로 작성합니다.
 - 권장 커밋 형식은 `<type>: <요약>`입니다.
 - PR 제목과 설명은 한국어로 작성합니다.
