@@ -4,6 +4,8 @@ from app.core.settings import SolarSettings
 
 
 class FakeSolarJsonClient:
+    """실제 Solar API를 호출하지 않고 연결부만 검증하기 위한 가짜 클라이언트입니다."""
+
     def __init__(self, response):
         self.response = response
         self.calls = []

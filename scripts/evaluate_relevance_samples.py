@@ -1,4 +1,7 @@
-"""Evaluate relevance filtering on labeled sample documents."""
+"""라벨된 샘플 문서로 관련성 필터를 평가합니다.
+
+실제 Solar API를 호출하므로 API 사용량과 쿼터를 소모합니다.
+"""
 
 from __future__ import annotations
 

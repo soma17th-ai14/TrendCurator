@@ -1,4 +1,4 @@
-"""Application settings loaded from environment variables."""
+"""환경변수에서 애플리케이션 설정을 읽습니다."""
 
 from __future__ import annotations
 
@@ -15,10 +15,10 @@ class SolarSettings:
 
 
 def get_solar_settings() -> SolarSettings:
-    """Load Solar settings from environment variables.
+    """환경변수에서 Solar 설정을 읽습니다.
 
-    API keys must be injected through the runtime environment or a local
-    untracked .env loader. This function does not read files directly.
+    API 키는 런타임 환경변수 또는 커밋되지 않는 로컬 .env 로더를 통해
+    주입해야 합니다. 이 함수는 파일을 직접 읽지 않습니다.
     """
 
     api_key = os.environ.get("SOLAR_API_KEY")

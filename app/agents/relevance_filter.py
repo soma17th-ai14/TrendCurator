@@ -1,4 +1,4 @@
-"""Relevance filtering for the collection pipeline."""
+"""수집 파이프라인에서 사용하는 관련성 필터."""
 
 from __future__ import annotations
 
@@ -37,10 +37,10 @@ class RelevanceDecision:
     reason: str
 
     def to_response(self) -> dict:
-        """Return the temporary internal response shape for this filter.
+        """관련성 필터의 임시 내부 응답 형식을 반환합니다.
 
-        This shape is not part of docs/api-spec.md yet. It should be reviewed
-        and adjusted when the relevance filter response contract is finalized.
+        이 형식은 아직 docs/api-spec.md에 확정된 계약이 아닙니다.
+        관련성 필터 응답 계약이 확정되면 함께 검토하고 조정해야 합니다.
         """
 
         return {
@@ -54,11 +54,11 @@ class RelevanceDecision:
 
 @dataclass(frozen=True)
 class SolarMiniRelevanceFilter:
-    """Deterministic relevance gate shaped for later Solar Mini replacement.
+    """Solar Mini 호출 실패나 테스트에서 사용할 결정적 관련성 필터입니다.
 
-    The current implementation is intentionally local and dependency-free.
-    It preserves the Relevance Filter boundary from docs/api-spec.md while
-    allowing the scoring backend to be replaced by an LLM client later.
+    현재 구현은 외부 의존성이 없는 로컬 점수 계산 방식입니다.
+    docs/api-spec.md의 Relevance Filter 경계를 유지하면서,
+    실제 운영에서는 Solar Mini 기반 필터로 교체할 수 있게 분리했습니다.
     """
 
     keywords: tuple[str, ...] = tuple(DEFAULT_AGENT_KEYWORDS)

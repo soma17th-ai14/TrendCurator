@@ -1,4 +1,4 @@
-"""Minimal Solar API client boundary."""
+"""Solar API 호출을 위한 최소 클라이언트 경계."""
 
 from __future__ import annotations
 
@@ -18,10 +18,10 @@ class SolarMessage:
 
 
 class SolarClient:
-    """Small chat-completions client for Solar models.
+    """Solar 모델용 간단한 chat completions 클라이언트입니다.
 
-    The request shape intentionally follows the OpenAI-compatible chat
-    completions convention commonly used by Solar-compatible endpoints.
+    요청 형식은 Solar 호환 엔드포인트에서 흔히 사용하는
+    OpenAI 호환 chat completions 형식을 따릅니다.
     """
 
     def __init__(self, settings: SolarSettings, timeout_seconds: int = 30) -> None:

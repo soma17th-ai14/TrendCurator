@@ -1,4 +1,4 @@
-"""Solar Mini backed relevance filtering."""
+"""Solar Mini 기반 관련성 필터."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ class SolarJsonClient(Protocol):
 
 @dataclass(frozen=True)
 class SolarMiniLLMRelevanceFilter:
-    """Relevance filter that delegates judgment to Solar Mini."""
+    """정규화된 문서가 AI Agent 관련 정보인지 Solar Mini에 판정시킵니다."""
 
     client: SolarJsonClient
     settings: SolarSettings
@@ -35,6 +35,8 @@ class SolarMiniLLMRelevanceFilter:
         return cls(client=SolarClient(settings), settings=settings)
 
     def evaluate(self, document: Document) -> RelevanceDecision:
+        # Solar 응답이 일부 필드를 누락하거나 타입이 흔들려도
+        # 파이프라인이 깨지지 않도록 로컬 fallback 판정을 기본값으로 사용합니다.
         result = self.client.chat_json(
             model=self.settings.mini_model,
             messages=[

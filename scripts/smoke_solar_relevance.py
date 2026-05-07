@@ -1,6 +1,7 @@
-"""Run a Solar Mini relevance filter smoke test.
+"""Solar Mini 관련성 필터 smoke test를 실행합니다.
 
-This script reads local .env values without printing secrets.
+이 스크립트는 로컬 .env 값을 읽지만 비밀값은 출력하지 않습니다.
+실제 Solar API를 호출하므로 API 사용량과 쿼터를 소모합니다.
 """
 
 from __future__ import annotations

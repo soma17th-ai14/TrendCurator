@@ -1,4 +1,4 @@
-"""Shared data contracts based on docs/api-spec.md."""
+"""docs/api-spec.md를 기준으로 한 공통 데이터 계약."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ DocumentCategory = Literal["agent", "rag", "llm", "framework", "benchmark"]
 
 @dataclass(frozen=True)
 class Document:
-    """API-facing document contract used by pipeline and digest modules."""
+    """파이프라인과 Digest 모듈에서 공유하는 API 문서 계약입니다."""
 
     document_id: str
     title: str
@@ -43,7 +43,7 @@ class Document:
 
 @dataclass(frozen=True)
 class DigestItem:
-    """Daily Digest item contract from docs/api-spec.md."""
+    """docs/api-spec.md의 Daily Digest 항목 계약입니다."""
 
     title: str
     source: SourceName
@@ -58,7 +58,7 @@ class DigestItem:
 
 @dataclass(frozen=True)
 class DigestCandidate:
-    """Document selected for digest generation with retrieval metadata."""
+    """Digest 생성 후보 문서와 검색/필터링 메타데이터입니다."""
 
     document: Document
     relevance_score: float
@@ -67,7 +67,7 @@ class DigestCandidate:
 
 @dataclass(frozen=True)
 class SchedulerConfig:
-    """Scheduler settings exposed by GET/PUT /scheduler."""
+    """GET/PUT /scheduler에서 노출할 스케줄러 설정입니다."""
 
     enabled: bool
     time: str
@@ -77,6 +77,6 @@ class SchedulerConfig:
 
 
 def parse_iso_datetime(value: str) -> datetime:
-    """Parse an ISO datetime string accepted by the API documents."""
+    """API 문서에서 사용하는 ISO datetime 문자열을 파싱합니다."""
 
     return datetime.fromisoformat(value)
