@@ -306,6 +306,7 @@ Response
       "digest_id": "digest_20260506",
       "date": "2026-05-06",
       "item_count": 10,
+      "candidate_count": 31,
       "groundedness_score": 0.91
     }
   ],
@@ -384,7 +385,7 @@ Response
 
 ## 7. Groundedness Check API
 
-### 8.1 응답 근거성 검증
+### 7.1 응답 근거성 검증
 
 ```http
 POST /groundedness/check
@@ -414,9 +415,9 @@ Response
 }
 ```
 
-## 9. Streamlit UI 통합 API
+## 8. Streamlit UI 통합 API
 
-### 9.1 대시보드 데이터 조회
+### 8.1 대시보드 데이터 조회
 
 ```http
 GET /dashboard
@@ -457,9 +458,9 @@ Response
 }
 ```
 
-## 10. 스케줄러 API
+## 9. 스케줄러 API
 
-### 10.1 정기 발행 스케줄 조회
+### 9.1 정기 발행 스케줄 조회
 
 ```http
 GET /scheduler
@@ -482,7 +483,7 @@ Response
 }
 ```
 
-### 10.2 정기 발행 스케줄 수정
+### 9.2 정기 발행 스케줄 수정
 
 ```http
 PUT /scheduler
@@ -494,7 +495,8 @@ Request
 {
   "enabled": true,
   "time": "09:00",
-  "timezone": "Asia/Seoul"
+  "timezone": "Asia/Seoul",
+  "sources": ["huggingface", "hackernews"]
 }
 ```
 
@@ -515,7 +517,7 @@ Response
 }
 ```
 
-## 11. 주요 데이터 모델
+## 10. 주요 데이터 모델
 
 ### Document
 
@@ -574,7 +576,7 @@ Response
 }
 ```
 
-## 12. 주요 에러 코드
+## 11. 주요 에러 코드
 
 | Code                           | 설명                                    |
 | ------------------------------ | --------------------------------------- |
@@ -592,15 +594,16 @@ Response
 | `DIGEST_RETRIEVAL_FAILED`      | Daily Digest 후보 문서 검색 실패        |
 | `DIGEST_GENERATION_FAILED`     | Solar Pro 2 Digest 요약/비평 생성 실패  |
 
-## 13. 역할 분담 기준 API 매핑
+## 12. 역할 분담 기준 API 매핑
 
 | 담당 모듈                         | 관련 API                                                                         |
 | --------------------------------- | -------------------------------------------------------------------------------- |
 | 데이터 수집 및 정규화 파이프라인  | `POST /pipeline/collect`, `GET /pipeline/jobs/{job_id}`                          |
 | VectorDB, 임베딩, 검색 인덱스     | `POST /documents/search`                                                         |
 | 정기 발행 Digest 생성 모듈        | `POST /digest/generate`, `GET /digest/{digest_id}`, `GET /digest`                |
+| Scheduler                         | `GET /scheduler`, `PUT /scheduler`, 내부 `SchedulerRunResult`                    |
 | Solar Mini 관련성 필터            | `POST /pipeline/collect`, 내부 `SolarMiniRelevanceDecision`                      |
 | Daily Digest Retriever           | `POST /digest/generate`, 내부 `DailyDigestRetrievalResult`                       |
 | Solar Pro 2 요약/비평 프롬프트    | `POST /digest/generate`, `GET /digest/{digest_id}`                               |
 | 온디맨드 질의 및 트렌드 비교 모듈 | `POST /query`                                                                    |
-| UI, 통합, 검증, 배포              | `GET /dashboard`, `POST /groundedness/check`, `GET /scheduler`, `PUT /scheduler` |
+| UI, 통합, 검증, 배포              | `GET /dashboard`, `POST /groundedness/check`                                     |

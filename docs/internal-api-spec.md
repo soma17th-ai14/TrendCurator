@@ -135,6 +135,8 @@ ChromaDB에서 특정 기간과 키워드에 맞는 컨텍스트를 가져옵니
 
 스케줄러가 실행 대상이 아니면 `ran=false`, `run_date=null`, `job_id=null`로 두고 `skipped_reason`에 `disabled`, `before_scheduled_time`, `already_ran_today` 중 하나를 사용합니다.
 
+`job_id`는 스케줄러가 호출한 파이프라인의 실행 결과 식별자입니다. Daily Digest 파이프라인을 호출한 경우 `digest_id` 값을 넣습니다.
+
 ### SchedulerConfig
 
 `GET /scheduler`, `PUT /scheduler`, 정기 발행 실행 진입점에서 공통으로 사용하는 설정입니다.
