@@ -9,6 +9,7 @@ from app.services.scheduler import (
     SchedulerRunSkipped,
     SchedulerService,
     SchedulerState,
+    load_scheduler_config_from_env,
 )
 
 
@@ -81,3 +82,33 @@ def test_run_due_raises_when_scheduler_is_not_due() -> None:
             lambda run_date, config: None,
             datetime(2026, 5, 6, 8, 0, tzinfo=SEOUL),
         )
+
+
+def test_load_scheduler_config_from_env_uses_defaults() -> None:
+    config = load_scheduler_config_from_env({})
+
+    assert config.enabled is True
+    assert config.time == "09:00"
+    assert config.timezone == "Asia/Seoul"
+    assert config.sources == ("huggingface", "hackernews")
+
+
+def test_load_scheduler_config_from_env_overrides_values() -> None:
+    config = load_scheduler_config_from_env(
+        {
+            "SCHEDULER_ENABLED": "false",
+            "SCHEDULER_TIME": "18:30",
+            "SCHEDULER_TIMEZONE": "UTC",
+            "SCHEDULER_SOURCES": "huggingface, hackernews, custom",
+        }
+    )
+
+    assert config.enabled is False
+    assert config.time == "18:30"
+    assert config.timezone == "UTC"
+    assert config.sources == ("huggingface", "hackernews", "custom")
+
+
+def test_load_scheduler_config_from_env_rejects_invalid_enabled() -> None:
+    with pytest.raises(SchedulerConfigError):
+        load_scheduler_config_from_env({"SCHEDULER_ENABLED": "maybe"})

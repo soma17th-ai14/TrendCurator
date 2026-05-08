@@ -2,11 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from datetime import date, datetime, time
-from typing import Callable, Optional
+from typing import Callable, Mapping, Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 DEFAULT_SOURCES: tuple[str, ...] = ("huggingface", "hackernews")
+SCHEDULER_ENABLED_ENV = "SCHEDULER_ENABLED"
+SCHEDULER_TIME_ENV = "SCHEDULER_TIME"
+SCHEDULER_TIMEZONE_ENV = "SCHEDULER_TIMEZONE"
+SCHEDULER_SOURCES_ENV = "SCHEDULER_SOURCES"
 
 
 class SchedulerConfigError(ValueError):
@@ -161,5 +165,49 @@ def ensure_timezone(value: datetime, timezone: ZoneInfo) -> datetime:
     return value.astimezone(timezone)
 
 
+def load_scheduler_config_from_env(
+    env: Optional[Mapping[str, str]] = None,
+) -> SchedulerConfig:
+    values = env or {}
+    enabled = parse_bool_env(values.get(SCHEDULER_ENABLED_ENV), default=True)
+    sources = parse_sources_env(values.get(SCHEDULER_SOURCES_ENV))
+
+    return SchedulerConfig(
+        enabled=enabled,
+        time=values.get(SCHEDULER_TIME_ENV, "09:00"),
+        timezone=values.get(SCHEDULER_TIMEZONE_ENV, "Asia/Seoul"),
+        sources=sources,
+    )
+
+
+def parse_bool_env(value: Optional[str], default: bool) -> bool:
+    if value is None or value.strip() == "":
+        return default
+
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+
+    raise SchedulerConfigError(f"invalid boolean value: {value}")
+
+
+def parse_sources_env(value: Optional[str]) -> tuple[str, ...]:
+    if value is None or value.strip() == "":
+        return DEFAULT_SOURCES
+
+    sources = tuple(source.strip() for source in value.split(",") if source.strip())
+    if not sources:
+        raise SchedulerConfigError("sources must not be empty")
+    return sources
+
+
 def create_default_scheduler() -> SchedulerService:
     return SchedulerService(SchedulerState(config=SchedulerConfig()))
+
+
+def create_scheduler_from_env(
+    env: Optional[Mapping[str, str]] = None,
+) -> SchedulerService:
+    return SchedulerService(SchedulerState(config=load_scheduler_config_from_env(env)))

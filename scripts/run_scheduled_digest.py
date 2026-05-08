@@ -7,7 +7,7 @@ from app.services.scheduler import (
     SchedulerConfig,
     SchedulerRunSkipped,
     SchedulerService,
-    create_default_scheduler,
+    create_scheduler_from_env,
 )
 
 
@@ -49,7 +49,7 @@ def run_once(
 
 
 def main() -> int:
-    scheduler = create_default_scheduler()
+    scheduler = create_scheduler_from_env()
     return run_once(scheduler)
 
 
