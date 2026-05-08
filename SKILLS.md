@@ -64,6 +64,7 @@ API 레이어에서 노출되는 Document 세부 필드는 `docs/api-spec.md`의
 - 테스트가 필요한 변경은 테스트 없이 병합하지 않습니다. 문서 전용 변경은 PR에 테스트 비대상 사유를 명시합니다.
 - 에이전트가 작업할 때는 관련 문서를 먼저 확인하고, 변경 결과가 `README.md`, `docs/`, `SKILLS.md`, `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`와 충돌하지 않는지 점검합니다.
 - 엔드포인트, 응답 스키마, 에러 코드, 모듈별 API 매핑을 바꾸는 작업은 `docs/api-spec.md`를 함께 갱신합니다.
+- 임시 파일, 개인 메모, 작업용 spec/plan 등 팀 공유 대상이 아닌 산출물은 `.scratch/` 폴더 아래에 둡니다. 해당 경로는 `.gitignore` 처리되어 레포에 포함되지 않습니다.
 
 ## 6. Git 규칙
 
