@@ -3,11 +3,11 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Optional
 
+from app.core.scheduler_settings import create_scheduler_from_env
 from app.services.scheduler import (
     SchedulerConfig,
     SchedulerRunSkipped,
     SchedulerService,
-    create_scheduler_from_env,
 )
 
 
