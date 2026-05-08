@@ -245,6 +245,7 @@ Response
     "digest_id": "digest_20260506",
     "status": "completed",
     "item_count": 10,
+    "candidate_count": 31,
     "groundedness_score": 0.91
   },
   "error": null
@@ -268,15 +269,19 @@ Response
     "title": "AI Agent Daily Digest",
     "items": [
       {
+        "document_id": "doc_001",
         "title": "논문 또는 게시글 제목",
         "source": "huggingface",
         "url": "https://huggingface.co/papers/xxxx.xxxxx",
+        "published_at": "2026-05-05",
         "summary": "핵심 요약",
         "key_points": ["핵심 내용 1", "핵심 내용 2"],
         "contribution": "주요 기여",
         "benchmark": "성능 수치 또는 실험 결과",
         "critique": "기존 기술 대비 차별점 및 한계",
-        "tags": ["multi-agent", "rag"]
+        "tags": ["multi-agent", "rag"],
+        "evidence_document_ids": ["doc_001"],
+        "llm_model": "solar-pro-2"
       }
     ],
     "groundedness_score": 0.91
@@ -470,7 +475,8 @@ Response
     "time": "09:00",
     "timezone": "Asia/Seoul",
     "sources": ["huggingface", "hackernews"],
-    "last_run_at": "2026-05-06T09:00:00"
+    "last_run_at": "2026-05-06T09:00:00+09:00",
+    "next_run_at": "2026-05-07T09:00:00+09:00"
   },
   "error": null
 }
@@ -498,7 +504,12 @@ Response
 {
   "success": true,
   "data": {
-    "message": "Scheduler updated"
+    "enabled": true,
+    "time": "09:00",
+    "timezone": "Asia/Seoul",
+    "sources": ["huggingface", "hackernews"],
+    "last_run_at": null,
+    "next_run_at": "2026-05-06T09:00:00+09:00"
   },
   "error": null
 }
@@ -534,15 +545,19 @@ Response
 
 ```json
 {
+  "document_id": "doc_001",
   "title": "string",
   "source": "huggingface | hackernews",
   "url": "string",
+  "published_at": "YYYY-MM-DD",
   "summary": "string",
   "key_points": ["string"],
   "contribution": "string",
   "benchmark": "string",
   "critique": "string",
-  "tags": ["string"]
+  "tags": ["string"],
+  "evidence_document_ids": ["doc_001"],
+  "llm_model": "solar-pro-2"
 }
 ```
 
@@ -573,6 +588,9 @@ Response
 | `LLM_GENERATION_FAILED`        | LLM 응답 생성 실패                      |
 | `INVALID_DATE_RANGE`           | 날짜 범위 입력 오류                     |
 | `SCHEDULER_ERROR`              | 정기 발행 스케줄러 오류                 |
+| `RELEVANCE_FILTER_FAILED`      | Solar Mini 관련성 판정 실패             |
+| `DIGEST_RETRIEVAL_FAILED`      | Daily Digest 후보 문서 검색 실패        |
+| `DIGEST_GENERATION_FAILED`     | Solar Pro 2 Digest 요약/비평 생성 실패  |
 
 ## 13. 역할 분담 기준 API 매핑
 
@@ -581,5 +599,8 @@ Response
 | 데이터 수집 및 정규화 파이프라인  | `POST /pipeline/collect`, `GET /pipeline/jobs/{job_id}`                          |
 | VectorDB, 임베딩, 검색 인덱스     | `POST /documents/search`                                                         |
 | 정기 발행 Digest 생성 모듈        | `POST /digest/generate`, `GET /digest/{digest_id}`, `GET /digest`                |
+| Solar Mini 관련성 필터            | `POST /pipeline/collect`, 내부 `SolarMiniRelevanceDecision`                      |
+| Daily Digest Retriever           | `POST /digest/generate`, 내부 `DailyDigestRetrievalResult`                       |
+| Solar Pro 2 요약/비평 프롬프트    | `POST /digest/generate`, `GET /digest/{digest_id}`                               |
 | 온디맨드 질의 및 트렌드 비교 모듈 | `POST /query`                                                                    |
 | UI, 통합, 검증, 배포              | `GET /dashboard`, `POST /groundedness/check`, `GET /scheduler`, `PUT /scheduler` |
