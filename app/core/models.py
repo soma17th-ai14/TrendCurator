@@ -3,28 +3,32 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
-SourceName = Literal["huggingface", "hackernews"]
-DocumentCategory = Literal["agent", "rag", "llm", "framework", "benchmark"]
+from pydantic import BaseModel, Field
+
+Source = Literal["huggingface", "hackernews"]
+Category = Literal["agent", "rag", "llm", "framework", "benchmark"]
+
+SourceName = Source
+DocumentCategory = Category
 
 
-@dataclass(frozen=True)
-class Document:
-    """파이프라인과 Digest 모듈에서 공유하는 API 문서 계약입니다."""
+class Document(BaseModel):
+    """API 응답과 수집기 정규화 단계에서 공유하는 문서 계약입니다."""
 
     document_id: str
     title: str
-    source: SourceName
+    source: Source
     url: str
-    published_at: str
-    collected_at: str
-    category: DocumentCategory
-    tags: list[str]
+    published_at: date | None = None
+    collected_at: datetime
+    category: Category
+    tags: list[str] = Field(default_factory=list)
     content: str
     summary: str = ""
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     @property
     def searchable_text(self) -> str:
@@ -50,7 +54,7 @@ class NormalizedDocument:
     """
 
     doc_id: str
-    source: SourceName
+    source: Source
     title: str
     url: str
     published_date: str
@@ -84,7 +88,7 @@ class DigestItem:
     """docs/api-spec.md의 Daily Digest 항목 계약입니다."""
 
     title: str
-    source: SourceName
+    source: Source
     url: str
     summary: str
     key_points: list[str]
@@ -110,7 +114,7 @@ class SchedulerConfig:
     enabled: bool
     time: str
     timezone: str = "Asia/Seoul"
-    sources: list[SourceName] = field(default_factory=lambda: ["huggingface", "hackernews"])
+    sources: list[Source] = field(default_factory=lambda: ["huggingface", "hackernews"])
     last_run_at: str | None = None
 
 
