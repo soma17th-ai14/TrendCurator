@@ -1,0 +1,30 @@
+{
+  "hits": [
+    {
+      "objectID": "40123456",
+      "title": "Show HN: Open-source multi-agent framework for LLMs",
+      "url": "https://example.com/multi-agent-framework",
+      "story_text": null,
+      "author": "alice",
+      "points": 215,
+      "num_comments": 87,
+      "created_at": "2026-05-06T14:30:00.000Z",
+      "created_at_i": 1778761800
+    },
+    {
+      "objectID": "40123457",
+      "title": "Ask HN: How are you using AI agents in production?",
+      "url": null,
+      "story_text": "We've been experimenting with multi-agent setups...",
+      "author": "bob",
+      "points": 142,
+      "num_comments": 95,
+      "created_at": "2026-05-06T10:15:00.000Z",
+      "created_at_i": 1778746500
+    }
+  ],
+  "nbHits": 2,
+  "page": 0,
+  "nbPages": 1,
+  "hitsPerPage": 50
+}
