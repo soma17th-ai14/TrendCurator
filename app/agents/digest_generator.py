@@ -42,6 +42,16 @@ class SolarProDigestResponseParser:
         if result.date != request.digest_date:
             raise ValueError("Solar Pro Digest 응답의 date가 요청 digest_date와 다릅니다.")
 
+        expected_digest_id = f"digest_{request.digest_date:%Y%m%d}"
+        if result.digest_id != expected_digest_id:
+            raise ValueError("Solar Pro Digest 응답의 digest_id가 요청 digest_date와 맞지 않습니다.")
+
+        invalid_models = [
+            item.llm_model for item in result.items if item.llm_model != "solar-pro-2"
+        ]
+        if invalid_models:
+            raise ValueError("Digest item의 llm_model은 solar-pro-2여야 합니다.")
+
         return result
 
     def _parse_payload(self, response: str | dict[str, Any]) -> dict[str, Any]:

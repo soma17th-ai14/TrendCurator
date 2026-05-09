@@ -139,6 +139,23 @@ def test_parse_rejects_response_date_mismatch():
         parser.parse(payload, request=_request())
 
 
+def test_parse_rejects_digest_id_mismatch():
+    parser = SolarProDigestResponseParser()
+    payload = _response_payload(digest_id="digest_20260507")
+
+    with pytest.raises(ValueError, match="digest_id"):
+        parser.parse(payload, request=_request())
+
+
+def test_parse_rejects_wrong_llm_model():
+    parser = SolarProDigestResponseParser()
+    payload = _response_payload()
+    payload["items"][0]["llm_model"] = "solar-mini"
+
+    with pytest.raises(ValueError, match="llm_model"):
+        parser.parse(payload, request=_request())
+
+
 def test_load_solar_pro_digest_prompt_contains_output_contract():
     prompt = load_solar_pro_digest_prompt()
 
