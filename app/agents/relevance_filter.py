@@ -83,7 +83,7 @@ class SolarMiniRelevanceFilter:
 
     def evaluate(self, document: NormalizedDocument) -> RelevanceDecision:
         text = document.searchable_text.lower()
-        matched = [keyword for keyword in self.keywords if self._contains_keyword(text, keyword)]
+        matched = self._matched_keywords(text)
         score = self._score(document=document, matched_keywords=matched)
         is_relevant = score >= self.threshold
         reason = (
@@ -117,9 +117,42 @@ class SolarMiniRelevanceFilter:
         return score
 
     def _contains_keyword(self, text: str, keyword: str) -> bool:
+        return bool(self._keyword_spans(text, keyword))
+
+    def _matched_keywords(self, text: str) -> list[str]:
+        selected: list[tuple[int, str]] = []
+        occupied_spans: list[tuple[int, int]] = []
+
+        for index, keyword in sorted(
+            enumerate(self.keywords),
+            key=lambda item: (-len(item[1]), item[0]),
+        ):
+            spans = self._keyword_spans(text, keyword)
+            available_span = self._first_non_overlapping_span(spans, occupied_spans)
+            if available_span is None:
+                continue
+            occupied_spans.extend(spans)
+            selected.append((index, keyword))
+
+        return [keyword for _, keyword in sorted(selected)]
+
+    def _keyword_spans(self, text: str, keyword: str) -> list[tuple[int, int]]:
         escaped = re.escape(keyword.lower())
         pattern = rf"(?<![a-z0-9]){escaped}(?![a-z0-9])"
-        return re.search(pattern, text) is not None
+        return [match.span() for match in re.finditer(pattern, text)]
+
+    def _first_non_overlapping_span(
+        self,
+        spans: list[tuple[int, int]],
+        occupied_spans: list[tuple[int, int]],
+    ) -> tuple[int, int] | None:
+        for span in spans:
+            if not any(self._overlaps(span, occupied) for occupied in occupied_spans):
+                return span
+        return None
+
+    def _overlaps(self, first: tuple[int, int], second: tuple[int, int]) -> bool:
+        return first[0] < second[1] and second[0] < first[1]
 
     def _category_hint_matches(self, category_hint: str) -> bool:
         text = category_hint.lower()

@@ -32,7 +32,7 @@ def test_solar_mini_relevance_filter_accepts_agent_document():
 
     assert decision.is_relevant is True
     assert decision.score >= 0.18
-    assert "agent" in decision.matched_keywords
+    assert "multi-agent" in decision.matched_keywords
     assert decision.to_response() == {
         "doc_id": "doc_001",
         "is_relevant": True,
@@ -117,6 +117,20 @@ def test_solar_mini_relevance_filter_allows_custom_core_keywords():
 
     assert decision.is_relevant is True
     assert decision.matched_keywords == ["browser operator"]
+
+
+def test_solar_mini_relevance_filter_prefers_longer_overlapping_keywords():
+    document = make_document(
+        title="Multi-agent benchmark",
+        category_hint="multi-agent",
+        raw_text="A benchmark for multi-agent systems.",
+        metadata={},
+    )
+
+    decision = SolarMiniRelevanceFilter().evaluate(document)
+
+    assert "multi-agent" in decision.matched_keywords
+    assert "agent" not in decision.matched_keywords
 
 
 def test_solar_mini_relevance_filter_matches_labeled_sample_data():
