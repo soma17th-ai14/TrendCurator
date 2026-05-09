@@ -56,6 +56,16 @@ def test_normalize_document_falls_back_to_document_id_for_external_id():
     assert normalized.external_id == document.document_id
 
 
+def test_normalize_document_deep_copies_metadata():
+    authors = ["Alice", "Bob"]
+    document = make_document(metadata={"authors": authors, "external_id": "2405.01234"})
+
+    normalized = normalize_document(document)
+    authors.append("Carol")
+
+    assert normalized.metadata["authors"] == ["Alice", "Bob"]
+
+
 def test_normalize_document_content_hash_is_stable_for_same_content():
     first = normalize_document(make_document())
     second = normalize_document(make_document())

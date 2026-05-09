@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from copy import deepcopy
 from typing import Any
 
 from app.core.models import Document, NormalizedDocument
@@ -31,7 +32,7 @@ def normalize_document(document: Document) -> NormalizedDocument:
         category_hint=category_hint,
         external_id=external_id,
         content_hash=_build_content_hash(document=document, raw_text=raw_text),
-        metadata=dict(document.metadata),
+        metadata=deepcopy(document.metadata),
     )
 
 
