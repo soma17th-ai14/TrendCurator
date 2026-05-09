@@ -38,6 +38,14 @@ def load_samples(path: Path = SAMPLES_PATH) -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def expected_is_relevant(sample: dict) -> bool:
+    expected = sample.get("expected_is_relevant")
+    if not isinstance(expected, bool):
+        doc_id = sample.get("document", {}).get("doc_id", "<unknown>")
+        raise RuntimeError(f"{doc_id} 샘플의 expected_is_relevant 값이 bool이 아닙니다.")
+    return expected
+
+
 def main() -> int:
     load_local_env()
     settings = get_solar_settings()
@@ -51,7 +59,7 @@ def main() -> int:
 
     for sample in samples:
         document = NormalizedDocument(**sample["document"])
-        expected = bool(sample["expected_is_relevant"])
+        expected = expected_is_relevant(sample)
         decision = relevance_filter.evaluate(document)
         predicted = decision.is_relevant
         correct += int(predicted == expected)

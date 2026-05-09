@@ -73,3 +73,11 @@ def test_evaluate_relevance_samples_rejects_empty_sample_file(monkeypatch, tmp_p
 
     with pytest.raises(RuntimeError, match="평가 샘플이 비어 있습니다"):
         evaluation_script.main()
+
+
+def test_expected_is_relevant_rejects_non_bool_label():
+    sample = _sample("doc_001", True)
+    sample["expected_is_relevant"] = "false"
+
+    with pytest.raises(RuntimeError, match="expected_is_relevant 값이 bool이 아닙니다"):
+        evaluation_script.expected_is_relevant(sample)

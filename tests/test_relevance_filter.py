@@ -141,7 +141,8 @@ def test_solar_mini_relevance_filter_matches_labeled_sample_data():
     for sample in samples:
         document = NormalizedDocument(**sample["document"])
         decision = relevance_filter.evaluate(document)
-        expected = bool(sample["expected_is_relevant"])
+        expected = sample["expected_is_relevant"]
+        assert isinstance(expected, bool)
         if decision.is_relevant != expected:
             mismatches.append(
                 {
