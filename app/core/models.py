@@ -60,6 +60,8 @@ class DailyDigestRetrievalResult(BaseModel):
 
     @model_validator(mode="after")
     def selected_count_cannot_exceed_candidates(self) -> "DailyDigestRetrievalResult":
+        if self.total_count < len(self.candidates):
+            raise ValueError("total_count cannot be less than candidates length")
         if self.selected_count > len(self.candidates):
             raise ValueError("selected_count cannot exceed candidates length")
         if self.selected_count > self.total_count:

@@ -139,6 +139,14 @@ def test_daily_digest_retrieval_result_validates_counts():
             selected_count=2,
         )
 
+    with pytest.raises(ValidationError):
+        DailyDigestRetrievalResult(
+            digest_date=date(2026, 5, 6),
+            candidates=[candidate],
+            total_count=0,
+            selected_count=0,
+        )
+
 
 def test_digest_item_matches_public_digest_contract():
     item = DigestItem(
