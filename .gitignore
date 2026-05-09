@@ -7,6 +7,5 @@ __pycache__/
 *.egg-info/
 chroma_data/
 .pytest_cache/
-pytest-cache-files-*/
 .DS_Store
 .scratch/
