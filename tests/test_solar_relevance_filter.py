@@ -57,6 +57,38 @@ def test_solar_mini_llm_relevance_filter_uses_configured_model():
     assert "판정 기준" in client.calls[0]["messages"][0].content
 
 
+def test_solar_mini_llm_relevance_filter_reuses_system_prompt(monkeypatch):
+    load_count = 0
+
+    def fake_load_system_prompt(self):
+        nonlocal load_count
+        load_count += 1
+        return "cached system prompt"
+
+    monkeypatch.setattr(
+        SolarMiniLLMRelevanceFilter,
+        "_load_system_prompt",
+        fake_load_system_prompt,
+    )
+    client = FakeSolarJsonClient(
+        {
+            "is_relevant": True,
+            "score": 0.93,
+            "matched_keywords": ["langgraph"],
+            "reason": "LangGraph agent workflow를 다룹니다.",
+        }
+    )
+    settings = SolarSettings(api_key="test-key", mini_model="solar-mini-test")
+    filter_ = SolarMiniLLMRelevanceFilter(client=client, settings=settings)
+
+    filter_.evaluate(make_document())
+    filter_.evaluate(make_document())
+
+    assert load_count == 1
+    assert client.calls[0]["messages"][0].content == "cached system prompt"
+    assert client.calls[1]["messages"][0].content == "cached system prompt"
+
+
 def test_solar_mini_llm_relevance_filter_parses_string_false():
     client = FakeSolarJsonClient(
         {

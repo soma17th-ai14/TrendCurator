@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 import math
 from pathlib import Path
 from typing import Protocol
@@ -57,7 +58,7 @@ class SolarMiniLLMRelevanceFilter:
             result = self.client.chat_json(
                 model=self.settings.mini_model,
                 messages=[
-                    SolarMessage(role="system", content=self._load_system_prompt()),
+                    SolarMessage(role="system", content=self.system_prompt),
                     SolarMessage(role="user", content=self._format_document(document)),
                 ],
                 temperature=0.0,
@@ -125,6 +126,10 @@ class SolarMiniLLMRelevanceFilter:
         if not math.isfinite(score):
             return fallback
         return min(max(score, 0.0), 1.0)
+
+    @cached_property
+    def system_prompt(self) -> str:
+        return self._load_system_prompt()
 
     def _load_system_prompt(self) -> str:
         return PROMPT_PATH.read_text(encoding="utf-8")
