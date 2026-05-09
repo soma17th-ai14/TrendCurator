@@ -12,20 +12,36 @@ DEFAULT_AGENT_KEYWORDS = [
     "agent",
     "agents",
     "ai agent",
+    "agentic",
     "multi-agent",
     "multi agent",
     "langgraph",
-    "rag",
-    "retrieval",
     "tool-use",
     "tool use",
     "function calling",
     "workflow",
     "orchestration",
-    "memory",
     "planner",
+    "rag",
+    "retrieval",
+    "memory",
     "reasoning",
+    "benchmark",
 ]
+
+CORE_AGENT_KEYWORDS = {
+    "agent",
+    "agents",
+    "ai agent",
+    "agentic",
+    "multi-agent",
+    "multi agent",
+    "langgraph",
+    "tool-use",
+    "tool use",
+    "function calling",
+    "planner",
+}
 
 
 @dataclass(frozen=True)
@@ -67,7 +83,7 @@ class SolarMiniRelevanceFilter:
     def evaluate(self, document: NormalizedDocument) -> RelevanceDecision:
         text = document.searchable_text.lower()
         matched = [keyword for keyword in self.keywords if self._contains_keyword(text, keyword)]
-        score = self._score(document=document, matched_count=len(matched))
+        score = self._score(document=document, matched_keywords=matched)
         is_relevant = score >= self.threshold
         reason = (
             "AI Agent 관련 키워드와 카테고리 신호가 기준을 충족했습니다."
@@ -85,11 +101,19 @@ class SolarMiniRelevanceFilter:
     def filter(self, documents: list[NormalizedDocument]) -> list[RelevanceDecision]:
         return [decision for decision in map(self.evaluate, documents) if decision.is_relevant]
 
-    def _score(self, document: NormalizedDocument, matched_count: int) -> float:
-        keyword_score = min(matched_count * 0.08, 0.72)
-        category_score = 0.18 if self._category_hint_matches(document.category_hint) else 0.0
+    def _score(self, document: NormalizedDocument, matched_keywords: list[str]) -> float:
+        core_count = sum(1 for keyword in matched_keywords if keyword in CORE_AGENT_KEYWORDS)
+        context_count = len(matched_keywords) - core_count
+        has_core_signal = core_count > 0 or self._category_hint_matches_core(document.category_hint)
+
+        core_score = min(core_count * 0.1, 0.7)
+        context_score = min(context_count * 0.04, 0.2)
+        category_score = self._category_score(document.category_hint, has_core_signal)
         metadata_score = 0.04 if document.metadata else 0.0
-        return min(keyword_score + category_score + metadata_score, 1.0)
+        score = min(core_score + context_score + category_score + metadata_score, 1.0)
+        if not has_core_signal:
+            return min(score, self.threshold - 0.01)
+        return score
 
     def _contains_keyword(self, text: str, keyword: str) -> bool:
         escaped = re.escape(keyword.lower())
@@ -99,3 +123,14 @@ class SolarMiniRelevanceFilter:
     def _category_hint_matches(self, category_hint: str) -> bool:
         text = category_hint.lower()
         return any(self._contains_keyword(text, keyword) for keyword in self.keywords)
+
+    def _category_hint_matches_core(self, category_hint: str) -> bool:
+        text = category_hint.lower()
+        return any(self._contains_keyword(text, keyword) for keyword in CORE_AGENT_KEYWORDS)
+
+    def _category_score(self, category_hint: str, has_core_signal: bool) -> float:
+        if self._category_hint_matches_core(category_hint):
+            return 0.16
+        if has_core_signal and self._category_hint_matches(category_hint):
+            return 0.08
+        return 0.0

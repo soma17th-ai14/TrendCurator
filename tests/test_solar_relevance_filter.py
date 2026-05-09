@@ -81,3 +81,41 @@ def test_solar_mini_llm_relevance_filter_rejects_low_score_even_if_flag_is_true(
     decision = filter_.evaluate(make_document())
 
     assert decision.is_relevant is False
+
+
+def test_solar_mini_llm_relevance_filter_uses_fallback_score_for_invalid_score():
+    client = FakeSolarJsonClient(
+        {
+            "is_relevant": True,
+            "score": "not-a-number",
+            "matched_keywords": "langgraph",
+            "reason": "점수 형식이 잘못된 응답입니다.",
+        }
+    )
+    settings = SolarSettings(api_key="test-key", mini_model="solar-mini-test")
+    filter_ = SolarMiniLLMRelevanceFilter(client=client, settings=settings)
+
+    decision = filter_.evaluate(make_document())
+    fallback = filter_.fallback_filter.evaluate(make_document())
+
+    assert decision.is_relevant is fallback.is_relevant
+    assert decision.score == fallback.score
+    assert decision.matched_keywords == fallback.matched_keywords
+
+
+def test_solar_mini_llm_relevance_filter_clamps_score_range():
+    client = FakeSolarJsonClient(
+        {
+            "is_relevant": True,
+            "score": 1.7,
+            "matched_keywords": ["agent"],
+            "reason": "점수 범위를 벗어난 응답입니다.",
+        }
+    )
+    settings = SolarSettings(api_key="test-key", mini_model="solar-mini-test")
+    filter_ = SolarMiniLLMRelevanceFilter(client=client, settings=settings)
+
+    decision = filter_.evaluate(make_document())
+
+    assert decision.is_relevant is True
+    assert decision.score == 1.0

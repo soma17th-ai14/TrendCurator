@@ -406,5 +406,77 @@
                                       }
                      },
         "expected_is_relevant":  false
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_boundary_001",
+                         "source":  "huggingface",
+                         "title":  "Agentic RAG Controller for Research Assistants",
+                         "url":  "https://example.com/boundary/agentic-rag-controller",
+                         "published_date":  "2026-05-07",
+                         "raw_text":  "The system plans iterative retrieval steps, stores memory, and calls tools while an agent decides the next action.",
+                         "category_hint":  "agentic-rag retrieval memory",
+                         "external_id":  "eval_boundary_001",
+                         "content_hash":  "hash_eval_boundary_001",
+                         "metadata":  {
+                                          "label_source":  "manual_boundary_case",
+                                          "case_type":  "agentic_rag_relevant"
+                                      }
+                     },
+        "expected_is_relevant":  true
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_boundary_002",
+                         "source":  "huggingface",
+                         "title":  "RAG Evaluation for Legal Question Answering",
+                         "url":  "https://example.com/boundary/legal-rag-evaluation",
+                         "published_date":  "2026-05-07",
+                         "raw_text":  "This paper compares retrieval quality and answer faithfulness for legal QA datasets and focuses on corpus construction.",
+                         "category_hint":  "rag retrieval evaluation",
+                         "external_id":  "eval_boundary_002",
+                         "content_hash":  "hash_eval_boundary_002",
+                         "metadata":  {
+                                          "label_source":  "manual_boundary_case",
+                                          "case_type":  "general_rag_irrelevant"
+                                      }
+                     },
+        "expected_is_relevant":  false
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_boundary_003",
+                         "source":  "hackernews",
+                         "title":  "Enterprise Workflow Orchestration for Data Operations",
+                         "url":  "https://example.com/boundary/workflow-orchestration",
+                         "published_date":  "2026-05-07",
+                         "raw_text":  "The platform schedules data jobs and coordinates approval workflows across business teams.",
+                         "category_hint":  "workflow orchestration data-engineering",
+                         "external_id":  "eval_boundary_003",
+                         "content_hash":  "hash_eval_boundary_003",
+                         "metadata":  {
+                                          "label_source":  "manual_boundary_case",
+                                          "case_type":  "general_workflow_irrelevant"
+                                      }
+                     },
+        "expected_is_relevant":  false
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_boundary_004",
+                         "source":  "hackernews",
+                         "title":  "Open-source Function Calling Router for Tool-Using Assistants",
+                         "url":  "https://example.com/boundary/function-calling-router",
+                         "published_date":  "2026-05-07",
+                         "raw_text":  "The router selects tools, validates function arguments, and keeps execution traces for assistant workflows.",
+                         "category_hint":  "function calling tool-use assistant",
+                         "external_id":  "eval_boundary_004",
+                         "content_hash":  "hash_eval_boundary_004",
+                         "metadata":  {
+                                          "label_source":  "manual_boundary_case",
+                                          "case_type":  "tool_use_relevant"
+                                      }
+                     },
+        "expected_is_relevant":  true
     }
 ]

@@ -53,7 +53,7 @@ class SolarMiniLLMRelevanceFilter:
         )
 
         fallback = self.fallback_filter.evaluate(document)
-        score = float(result.get("score", fallback.score))
+        score = self._parse_score(result.get("score"), fallback.score)
         matched_keywords = result.get("matched_keywords", fallback.matched_keywords)
         if not isinstance(matched_keywords, list):
             matched_keywords = fallback.matched_keywords
@@ -92,3 +92,10 @@ class SolarMiniLLMRelevanceFilter:
             if lowered == "false":
                 return False
         return fallback
+
+    def _parse_score(self, value: object, fallback: float) -> float:
+        try:
+            score = float(value)
+        except (TypeError, ValueError):
+            return fallback
+        return min(max(score, 0.0), 1.0)
