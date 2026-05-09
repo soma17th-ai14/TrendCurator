@@ -1,0 +1,12 @@
+{
+  "id": "2405.01234",
+  "title": "Multi-Agent Orchestration Survey",
+  "summary": "We survey recent advances in multi-agent orchestration for AI systems.",
+  "authors": [
+    {"name": "Alice"},
+    {"name": "Bob"}
+  ],
+  "publishedAt": "2026-05-05T00:00:00Z",
+  "upvotes": 42,
+  "discussionId": "dsc_001"
+}
