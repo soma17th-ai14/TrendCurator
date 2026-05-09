@@ -75,10 +75,15 @@ class SolarClient:
         try:
             with urlopen(request, timeout=self.timeout_seconds) as response:
                 body = json.loads(response.read().decode("utf-8"))
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("Solar API 응답 본문을 JSON으로 해석할 수 없습니다.") from exc
         except HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")
             raise RuntimeError(f"Solar API 요청이 실패했습니다: {exc.code} {detail}") from exc
         except URLError as exc:
             raise RuntimeError(f"Solar API에 연결할 수 없습니다: {exc.reason}") from exc
 
-        return body["choices"][0]["message"]["content"]
+        try:
+            return body["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise RuntimeError("Solar API 응답 형식이 올바르지 않습니다.") from exc
