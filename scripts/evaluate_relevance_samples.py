@@ -41,7 +41,7 @@ def load_samples(path: Path = SAMPLES_PATH) -> list[dict]:
 def main() -> None:
     load_local_env()
     settings = get_solar_settings()
-    relevance_filter = SolarMiniLLMRelevanceFilter.from_settings(settings)
+    relevance_filter = SolarMiniLLMRelevanceFilter.from_settings(settings, fallback_on_error=False)
     samples = load_samples()
 
     correct = 0

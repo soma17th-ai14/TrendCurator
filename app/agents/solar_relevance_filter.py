@@ -34,10 +34,20 @@ class SolarMiniLLMRelevanceFilter:
     client: SolarJsonClient
     settings: SolarSettings
     fallback_filter: SolarMiniRelevanceFilter = SolarMiniRelevanceFilter()
+    fallback_on_error: bool = True
 
     @classmethod
-    def from_settings(cls, settings: SolarSettings) -> "SolarMiniLLMRelevanceFilter":
-        return cls(client=SolarClient(settings), settings=settings)
+    def from_settings(
+        cls,
+        settings: SolarSettings,
+        *,
+        fallback_on_error: bool = True,
+    ) -> "SolarMiniLLMRelevanceFilter":
+        return cls(
+            client=SolarClient(settings),
+            settings=settings,
+            fallback_on_error=fallback_on_error,
+        )
 
     def evaluate(self, document: NormalizedDocument) -> RelevanceDecision:
         # Solar 응답이 일부 필드를 누락하거나 타입이 흔들려도
@@ -52,10 +62,14 @@ class SolarMiniLLMRelevanceFilter:
                 ],
                 temperature=0.0,
             )
-        except Exception:
+        except Exception as exc:
+            if not self.fallback_on_error:
+                raise RuntimeError("Solar 관련성 필터 호출이 실패했습니다.") from exc
             return fallback
 
         if not isinstance(result, dict):
+            if not self.fallback_on_error:
+                raise RuntimeError("Solar 관련성 필터 응답이 JSON 객체가 아닙니다.")
             return fallback
 
         score = self._parse_score(result.get("score"), fallback.score)

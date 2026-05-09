@@ -55,7 +55,7 @@ def make_sample_document() -> NormalizedDocument:
 def main() -> None:
     load_local_env()
     settings = get_solar_settings()
-    relevance_filter = SolarMiniLLMRelevanceFilter.from_settings(settings)
+    relevance_filter = SolarMiniLLMRelevanceFilter.from_settings(settings, fallback_on_error=False)
     decision = relevance_filter.evaluate(make_sample_document())
 
     print("Solar Mini relevance smoke test")

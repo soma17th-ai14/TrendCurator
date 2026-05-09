@@ -1,3 +1,5 @@
+import pytest
+
 from app.agents.solar_relevance_filter import SolarMiniLLMRelevanceFilter
 from app.core.models import NormalizedDocument
 from app.core.settings import SolarSettings
@@ -136,6 +138,30 @@ def test_solar_mini_llm_relevance_filter_uses_fallback_when_client_fails():
     fallback = filter_.fallback_filter.evaluate(document)
 
     assert decision == fallback
+
+
+def test_solar_mini_llm_relevance_filter_can_disable_error_fallback():
+    settings = SolarSettings(api_key="test-key", mini_model="solar-mini-test")
+    filter_ = SolarMiniLLMRelevanceFilter(
+        client=FailingSolarJsonClient(),
+        settings=settings,
+        fallback_on_error=False,
+    )
+
+    with pytest.raises(RuntimeError, match="Solar 관련성 필터 호출이 실패했습니다."):
+        filter_.evaluate(make_document())
+
+
+def test_solar_mini_llm_relevance_filter_can_disable_invalid_response_fallback():
+    settings = SolarSettings(api_key="test-key", mini_model="solar-mini-test")
+    filter_ = SolarMiniLLMRelevanceFilter(
+        client=FakeSolarJsonClient(["not", "a", "dict"]),
+        settings=settings,
+        fallback_on_error=False,
+    )
+
+    with pytest.raises(RuntimeError, match="JSON 객체가 아닙니다."):
+        filter_.evaluate(make_document())
 
 
 def test_solar_mini_llm_relevance_filter_uses_fallback_for_non_finite_score():
