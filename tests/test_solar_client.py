@@ -56,6 +56,17 @@ def test_solar_client_chat_json_parses_content_json(monkeypatch):
     assert client.chat_json(model="solar-mini-test", messages=[]) == {"score": 0.7}
 
 
+def test_solar_client_chat_json_rejects_non_object_content(monkeypatch):
+    def fake_urlopen(request, timeout):
+        return FakeResponse({"choices": [{"message": {"content": "[1, 2, 3]"}}]})
+
+    monkeypatch.setattr(solar_client_module, "urlopen", fake_urlopen)
+    client = SolarClient(SolarSettings(api_key="test-key"))
+
+    with pytest.raises(RuntimeError, match="JSON 응답이 객체 형식이 아닙니다"):
+        client.chat_json(model="solar-mini-test", messages=[])
+
+
 def test_solar_client_rejects_malformed_response_body(monkeypatch):
     def fake_urlopen(request, timeout):
         return FakeResponse({"unexpected": []})

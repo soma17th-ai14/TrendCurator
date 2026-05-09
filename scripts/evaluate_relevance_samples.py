@@ -38,11 +38,11 @@ def load_samples(path: Path = SAMPLES_PATH) -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def main() -> None:
+def main() -> int:
     load_local_env()
     settings = get_solar_settings()
     relevance_filter = SolarMiniLLMRelevanceFilter.from_settings(settings, fallback_on_error=False)
-    samples = load_samples()
+    samples = load_samples(SAMPLES_PATH)
 
     correct = 0
     false_positive = 0
@@ -66,6 +66,9 @@ def main() -> None:
         )
 
     total = len(samples)
+    if total == 0:
+        raise RuntimeError("관련성 평가 샘플이 비어 있습니다.")
+
     print("Solar Mini relevance evaluation")
     print(f"total: {total}")
     print(f"accuracy: {correct / total:.3f}")
@@ -78,7 +81,8 @@ def main() -> None:
                 f"- {row['doc_id']}: expected={row['expected_is_relevant']} "
                 f"predicted={row['is_relevant']} score={row['score']} reason={row['reason']}"
             )
+    return 0 if correct == total else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

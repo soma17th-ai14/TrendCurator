@@ -42,9 +42,12 @@ class SolarClient:
             response_format={"type": "json_object"},
         )
         try:
-            return json.loads(content)
+            parsed = json.loads(content)
         except json.JSONDecodeError as exc:
             raise RuntimeError("Solar 응답을 JSON으로 해석할 수 없습니다.") from exc
+        if not isinstance(parsed, dict):
+            raise RuntimeError("Solar JSON 응답이 객체 형식이 아닙니다.")
+        return parsed
 
     def chat_text(
         self,
