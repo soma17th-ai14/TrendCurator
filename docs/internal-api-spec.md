@@ -162,11 +162,11 @@ ChromaDB에서 특정 기간과 키워드에 맞는 컨텍스트를 가져옵니
   ```json
   {
     "document": {
-      "doc_id": "doc_001",
+      "document_id": "doc_001",
       "source": "huggingface",
       "title": "LangGraph agent workflow",
       "url": "https://example.com/doc",
-      "published_date": "2026-05-06",
+      "published_at": "2026-05-06",
       "raw_text": "원문 또는 정규화된 본문",
       "category_hint": "multi-agent workflow",
       "external_id": "2405.01234",
@@ -180,7 +180,7 @@ ChromaDB에서 특정 기간과 키워드에 맞는 컨텍스트를 가져옵니
 - **Output:** `SolarMiniRelevanceDecision`
   ```json
   {
-    "doc_id": "doc_001",
+    "document_id": "doc_001",
     "is_relevant": true,
     "score": 0.93,
     "matched_keywords": ["langgraph", "multi-agent"],
