@@ -183,6 +183,44 @@ def test_solar_mini_llm_relevance_filter_strict_mode_rejects_invalid_score():
         filter_.evaluate(make_document())
 
 
+def test_solar_mini_llm_relevance_filter_strict_mode_rejects_bool_score():
+    settings = SolarSettings(api_key="test-key", mini_model="solar-mini-test")
+    filter_ = SolarMiniLLMRelevanceFilter(
+        client=FakeSolarJsonClient(
+            {
+                "is_relevant": True,
+                "score": True,
+                "matched_keywords": ["agent"],
+                "reason": "점수 타입이 잘못된 응답입니다.",
+            }
+        ),
+        settings=settings,
+        fallback_on_error=False,
+    )
+
+    with pytest.raises(RuntimeError, match="score 값이 유효하지 않습니다."):
+        filter_.evaluate(make_document())
+
+
+def test_solar_mini_llm_relevance_filter_strict_mode_rejects_invalid_keywords():
+    settings = SolarSettings(api_key="test-key", mini_model="solar-mini-test")
+    filter_ = SolarMiniLLMRelevanceFilter(
+        client=FakeSolarJsonClient(
+            {
+                "is_relevant": True,
+                "score": 0.7,
+                "matched_keywords": ["agent", ""],
+                "reason": "키워드 타입이 잘못된 응답입니다.",
+            }
+        ),
+        settings=settings,
+        fallback_on_error=False,
+    )
+
+    with pytest.raises(RuntimeError, match="matched_keywords 값이 유효하지 않습니다."):
+        filter_.evaluate(make_document())
+
+
 def test_solar_mini_llm_relevance_filter_strict_mode_rejects_missing_reason():
     settings = SolarSettings(api_key="test-key", mini_model="solar-mini-test")
     filter_ = SolarMiniLLMRelevanceFilter(

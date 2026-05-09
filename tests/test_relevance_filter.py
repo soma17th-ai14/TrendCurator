@@ -101,6 +101,24 @@ def test_solar_mini_relevance_filter_rejects_general_workflow_orchestration():
     assert "workflow" in decision.matched_keywords
 
 
+def test_solar_mini_relevance_filter_allows_custom_core_keywords():
+    document = make_document(
+        title="Autonomous browser operator benchmark",
+        category_hint="browser operator",
+        raw_text="The benchmark evaluates autonomous browser operators on long-horizon web tasks.",
+        metadata={},
+    )
+    relevance_filter = SolarMiniRelevanceFilter(
+        keywords=("browser operator",),
+        core_keywords=("browser operator",),
+    )
+
+    decision = relevance_filter.evaluate(document)
+
+    assert decision.is_relevant is True
+    assert decision.matched_keywords == ["browser operator"]
+
+
 def test_solar_mini_relevance_filter_matches_labeled_sample_data():
     samples = json.loads(SAMPLES_PATH.read_text(encoding="utf-8"))
     relevance_filter = SolarMiniRelevanceFilter()

@@ -116,6 +116,8 @@ class SolarMiniLLMRelevanceFilter:
         return fallback
 
     def _parse_score(self, value: object, fallback: float) -> float:
+        if isinstance(value, bool):
+            return fallback
         try:
             score = float(value)
         except (TypeError, ValueError):
@@ -136,6 +138,8 @@ class SolarMiniLLMRelevanceFilter:
             raise RuntimeError("Solar 관련성 필터 응답의 score 값이 유효하지 않습니다.")
 
         if not isinstance(result.get("matched_keywords"), list):
+            raise RuntimeError("Solar 관련성 필터 응답의 matched_keywords 값이 유효하지 않습니다.")
+        if not all(isinstance(keyword, str) and keyword.strip() for keyword in result["matched_keywords"]):
             raise RuntimeError("Solar 관련성 필터 응답의 matched_keywords 값이 유효하지 않습니다.")
 
         if not isinstance(result.get("reason"), str) or not result["reason"].strip():
