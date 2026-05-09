@@ -164,6 +164,43 @@ def test_solar_mini_llm_relevance_filter_can_disable_invalid_response_fallback()
         filter_.evaluate(make_document())
 
 
+def test_solar_mini_llm_relevance_filter_strict_mode_rejects_invalid_score():
+    settings = SolarSettings(api_key="test-key", mini_model="solar-mini-test")
+    filter_ = SolarMiniLLMRelevanceFilter(
+        client=FakeSolarJsonClient(
+            {
+                "is_relevant": True,
+                "score": 1.7,
+                "matched_keywords": ["agent"],
+                "reason": "점수 범위를 벗어난 응답입니다.",
+            }
+        ),
+        settings=settings,
+        fallback_on_error=False,
+    )
+
+    with pytest.raises(RuntimeError, match="score 값이 유효하지 않습니다."):
+        filter_.evaluate(make_document())
+
+
+def test_solar_mini_llm_relevance_filter_strict_mode_rejects_missing_reason():
+    settings = SolarSettings(api_key="test-key", mini_model="solar-mini-test")
+    filter_ = SolarMiniLLMRelevanceFilter(
+        client=FakeSolarJsonClient(
+            {
+                "is_relevant": True,
+                "score": 0.7,
+                "matched_keywords": ["agent"],
+            }
+        ),
+        settings=settings,
+        fallback_on_error=False,
+    )
+
+    with pytest.raises(RuntimeError, match="reason 값이 유효하지 않습니다."):
+        filter_.evaluate(make_document())
+
+
 def test_solar_mini_llm_relevance_filter_uses_fallback_for_non_finite_score():
     client = FakeSolarJsonClient(
         {

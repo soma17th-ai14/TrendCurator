@@ -72,6 +72,9 @@ class SolarMiniLLMRelevanceFilter:
                 raise RuntimeError("Solar 관련성 필터 응답이 JSON 객체가 아닙니다.")
             return fallback
 
+        if not self.fallback_on_error:
+            self._validate_result(result)
+
         score = self._parse_score(result.get("score"), fallback.score)
         matched_keywords = result.get("matched_keywords", fallback.matched_keywords)
         if not isinstance(matched_keywords, list):
@@ -123,3 +126,17 @@ class SolarMiniLLMRelevanceFilter:
 
     def _load_system_prompt(self) -> str:
         return PROMPT_PATH.read_text(encoding="utf-8")
+
+    def _validate_result(self, result: dict) -> None:
+        if self._parse_bool(result.get("is_relevant"), fallback=None) is None:
+            raise RuntimeError("Solar 관련성 필터 응답의 is_relevant 값이 유효하지 않습니다.")
+
+        score = self._parse_score(result.get("score"), fallback=float("nan"))
+        if not math.isfinite(score) or score != float(result["score"]):
+            raise RuntimeError("Solar 관련성 필터 응답의 score 값이 유효하지 않습니다.")
+
+        if not isinstance(result.get("matched_keywords"), list):
+            raise RuntimeError("Solar 관련성 필터 응답의 matched_keywords 값이 유효하지 않습니다.")
+
+        if not isinstance(result.get("reason"), str) or not result["reason"].strip():
+            raise RuntimeError("Solar 관련성 필터 응답의 reason 값이 유효하지 않습니다.")
