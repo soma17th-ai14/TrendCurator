@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
+from pathlib import Path
 from typing import Protocol
 
 from app.agents.relevance_filter import RelevanceDecision, SolarMiniRelevanceFilter
 from app.core.models import NormalizedDocument
 from app.core.settings import SolarSettings
 from app.core.solar_client import SolarClient, SolarMessage
+
+
+PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "solar_mini_relevance.md"
 
 
 class SolarJsonClient(Protocol):
@@ -37,22 +42,22 @@ class SolarMiniLLMRelevanceFilter:
     def evaluate(self, document: NormalizedDocument) -> RelevanceDecision:
         # Solar 응답이 일부 필드를 누락하거나 타입이 흔들려도
         # 파이프라인이 깨지지 않도록 로컬 fallback 판정을 기본값으로 사용합니다.
-        result = self.client.chat_json(
-            model=self.settings.mini_model,
-            messages=[
-                SolarMessage(
-                    role="system",
-                    content=(
-                        "AI Agent Daily Digest 후보 관련성을 판정합니다. "
-                        "반드시 JSON만 반환합니다."
-                    ),
-                ),
-                SolarMessage(role="user", content=self._format_document(document)),
-            ],
-            temperature=0.0,
-        )
-
         fallback = self.fallback_filter.evaluate(document)
+        try:
+            result = self.client.chat_json(
+                model=self.settings.mini_model,
+                messages=[
+                    SolarMessage(role="system", content=self._load_system_prompt()),
+                    SolarMessage(role="user", content=self._format_document(document)),
+                ],
+                temperature=0.0,
+            )
+        except Exception:
+            return fallback
+
+        if not isinstance(result, dict):
+            return fallback
+
         score = self._parse_score(result.get("score"), fallback.score)
         matched_keywords = result.get("matched_keywords", fallback.matched_keywords)
         if not isinstance(matched_keywords, list):
@@ -98,4 +103,9 @@ class SolarMiniLLMRelevanceFilter:
             score = float(value)
         except (TypeError, ValueError):
             return fallback
+        if not math.isfinite(score):
+            return fallback
         return min(max(score, 0.0), 1.0)
+
+    def _load_system_prompt(self) -> str:
+        return PROMPT_PATH.read_text(encoding="utf-8")

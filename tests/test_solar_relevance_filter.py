@@ -15,6 +15,11 @@ class FakeSolarJsonClient:
         return self.response
 
 
+class FailingSolarJsonClient:
+    def chat_json(self, **kwargs):
+        raise RuntimeError("Solar API 요청 실패")
+
+
 def make_document():
     return NormalizedDocument(
         doc_id="doc_001",
@@ -47,6 +52,7 @@ def test_solar_mini_llm_relevance_filter_uses_configured_model():
     assert decision.is_relevant is True
     assert decision.score == 0.93
     assert client.calls[0]["model"] == "solar-mini-test"
+    assert "판정 기준" in client.calls[0]["messages"][0].content
 
 
 def test_solar_mini_llm_relevance_filter_parses_string_false():
@@ -119,3 +125,33 @@ def test_solar_mini_llm_relevance_filter_clamps_score_range():
 
     assert decision.is_relevant is True
     assert decision.score == 1.0
+
+
+def test_solar_mini_llm_relevance_filter_uses_fallback_when_client_fails():
+    settings = SolarSettings(api_key="test-key", mini_model="solar-mini-test")
+    filter_ = SolarMiniLLMRelevanceFilter(client=FailingSolarJsonClient(), settings=settings)
+
+    document = make_document()
+    decision = filter_.evaluate(document)
+    fallback = filter_.fallback_filter.evaluate(document)
+
+    assert decision == fallback
+
+
+def test_solar_mini_llm_relevance_filter_uses_fallback_for_non_finite_score():
+    client = FakeSolarJsonClient(
+        {
+            "is_relevant": True,
+            "score": "NaN",
+            "matched_keywords": ["agent"],
+            "reason": "점수가 유효하지 않은 응답입니다.",
+        }
+    )
+    settings = SolarSettings(api_key="test-key", mini_model="solar-mini-test")
+    filter_ = SolarMiniLLMRelevanceFilter(client=client, settings=settings)
+
+    document = make_document()
+    decision = filter_.evaluate(document)
+    fallback = filter_.fallback_filter.evaluate(document)
+
+    assert decision.score == fallback.score
