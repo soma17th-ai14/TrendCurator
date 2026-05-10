@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Mapping, Optional
 
 from app.services.scheduler import (
@@ -21,7 +22,7 @@ def load_scheduler_config_from_env(
     env: Optional[Mapping[str, str]] = None,
 ) -> SchedulerConfig:
     """환경변수에서 스케줄러 설정을 읽어옵니다."""
-    values = env or {}
+    values = os.environ if env is None else env
     enabled = parse_bool_env(values.get(SCHEDULER_ENABLED_ENV), default=True)
     sources = parse_sources_env(values.get(SCHEDULER_SOURCES_ENV))
 
