@@ -1,4 +1,4 @@
-# LangGraph 상태 정의
+﻿# LangGraph 상태 정의
 
 ```python
 class AgentState(TypedDict):
@@ -231,7 +231,7 @@ Digest 생성 대상 기간과 사용자 프로필을 기준으로 후보 문서
   }
   ```
 
-### Solar Pro 2 Summary/Critique Prompt
+### Solar Pro 3 Summary/Critique Prompt
 
 Daily Digest 후보 문서를 바탕으로 요약, 핵심 포인트, 기여, 벤치마크, 비평을 생성합니다.
 
@@ -279,7 +279,7 @@ Daily Digest 후보 문서를 바탕으로 요약, 핵심 포인트, 기여, 벤
         "critique": "기존 기술 대비 차별점 및 한계",
         "tags": ["multi-agent", "rag"],
         "evidence_document_ids": ["doc_001"],
-        "llm_model": "solar-pro-2"
+        "llm_model": "solar-pro-3"
       }
     ],
     "groundedness_score": 0.91

@@ -1,4 +1,4 @@
-# Solar Pro 2 Daily Digest 요약/비평 프롬프트
+# Solar Pro 3 Daily Digest 요약/비평 프롬프트
 
 ## 역할
 
@@ -41,7 +41,7 @@
       "critique": "기존 기술 대비 차별점 및 한계",
       "tags": ["태그"],
       "evidence_document_ids": ["근거 문서 id"],
-      "llm_model": "solar-pro-2"
+      "llm_model": "solar-pro-3"
     }
   ],
   "groundedness_score": 0.0
@@ -61,5 +61,5 @@
 - `critique`는 문서에서 확인 가능한 한계, 제약, 기존 기술 대비 차별점을 씁니다.
 - 근거가 없는 `benchmark`, `critique`, `contribution`은 `"명시된 근거 없음"`으로 반환합니다.
 - `evidence_document_ids`에는 해당 항목 작성에 사용한 후보 문서 id를 넣습니다.
-- `llm_model`은 항상 `"solar-pro-2"`로 반환합니다.
+- `llm_model`은 항상 `"solar-pro-3"`으로 반환합니다.
 - `groundedness_score`는 검증 단계에서 갱신되므로 이 단계에서는 `0.0`으로 둡니다.

@@ -1,4 +1,4 @@
-# API 스펙 초안
+﻿# API 스펙 초안
 
 이 문서는 TrendCurator의 API 계약 초안입니다. 모든 모듈은 API 구현, 서비스 인터페이스, 프론트엔드 연동, 테스트 작성 시 이 문서를 공통 기준으로 참조합니다.
 
@@ -281,7 +281,7 @@ Response
         "critique": "기존 기술 대비 차별점 및 한계",
         "tags": ["multi-agent", "rag"],
         "evidence_document_ids": ["doc_001"],
-        "llm_model": "solar-pro-2"
+        "llm_model": "solar-pro-3"
       }
     ],
     "groundedness_score": 0.91
@@ -559,7 +559,7 @@ Response
   "critique": "string",
   "tags": ["string"],
   "evidence_document_ids": ["doc_001"],
-  "llm_model": "solar-pro-2"
+  "llm_model": "solar-pro-3"
 }
 ```
 
@@ -592,7 +592,7 @@ Response
 | `SCHEDULER_ERROR`              | 정기 발행 스케줄러 오류                 |
 | `RELEVANCE_FILTER_FAILED`      | Solar Mini 관련성 판정 실패             |
 | `DIGEST_RETRIEVAL_FAILED`      | Daily Digest 후보 문서 검색 실패        |
-| `DIGEST_GENERATION_FAILED`     | Solar Pro 2 Digest 요약/비평 생성 실패  |
+| `DIGEST_GENERATION_FAILED`     | Solar Pro 3 Digest 요약/비평 생성 실패  |
 
 ## 12. 역할 분담 기준 API 매핑
 
@@ -604,6 +604,6 @@ Response
 | Scheduler                         | `GET /scheduler`, `PUT /scheduler`, 내부 `SchedulerRunResult`                    |
 | Solar Mini 관련성 필터            | `POST /pipeline/collect`, 내부 `SolarMiniRelevanceDecision`                      |
 | Daily Digest Retriever           | `POST /digest/generate`, 내부 `DailyDigestRetrievalResult`                       |
-| Solar Pro 2 요약/비평 프롬프트    | `POST /digest/generate`, `GET /digest/{digest_id}`                               |
+| Solar Pro 3 요약/비평 프롬프트    | `POST /digest/generate`, `GET /digest/{digest_id}`                               |
 | 온디맨드 질의 및 트렌드 비교 모듈 | `POST /query`                                                                    |
 | UI, 통합, 검증, 배포              | `GET /dashboard`, `POST /groundedness/check`                                     |

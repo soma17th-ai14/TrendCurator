@@ -1,4 +1,4 @@
-"""Solar Pro Digest 응답 파서 테스트."""
+﻿"""Solar Pro Digest 응답 파서 테스트."""
 
 import json
 from datetime import date
@@ -58,7 +58,7 @@ def _response_payload(**overrides) -> dict:
                 "critique": "명시된 근거 없음",
                 "tags": ["multi-agent", "workflow"],
                 "evidence_document_ids": ["doc_001"],
-                "llm_model": "solar-pro-2",
+                "llm_model": "solar-pro-3",
             }
         ],
         "groundedness_score": 0.0,
@@ -76,7 +76,7 @@ def test_parse_valid_dict_response():
     assert result.date == date(2026, 5, 6)
     assert result.items[0].document_id == "doc_001"
     assert result.items[0].evidence_document_ids == ["doc_001"]
-    assert result.items[0].llm_model == "solar-pro-2"
+    assert result.items[0].llm_model == "solar-pro-3"
 
 
 def test_parse_valid_json_string_response():
@@ -195,6 +195,6 @@ def test_parse_rejects_wrong_llm_model():
 def test_load_solar_pro_digest_prompt_contains_output_contract():
     prompt = load_solar_pro_digest_prompt()
 
-    assert "Solar Pro 2 Daily Digest" in prompt
+    assert "Solar Pro 3 Daily Digest" in prompt
     assert "evidence_document_ids" in prompt
     assert "명시된 근거 없음" in prompt
