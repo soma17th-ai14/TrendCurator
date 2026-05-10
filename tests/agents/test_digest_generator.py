@@ -234,8 +234,9 @@ def test_generator_calls_configured_digest_model_and_parses_response():
     assert client.calls[0]["messages"][0].role == "system"
     assert client.calls[0]["messages"][0].content == "system prompt"
     assert client.calls[0]["messages"][1].role == "user"
-    assert '"digest_date": "2026-05-06"' in client.calls[0]["messages"][1].content
-    assert '"document_id": "doc_001"' in client.calls[0]["messages"][1].content
+    user_payload = json.loads(client.calls[0]["messages"][1].content)
+    assert user_payload["digest_date"] == "2026-05-06"
+    assert user_payload["candidates"][0]["document_id"] == "doc_001"
 
 
 def test_generator_raises_when_client_fails():
