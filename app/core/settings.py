@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 
 
@@ -17,6 +18,15 @@ class SolarSettings:
 
 
 def get_solar_settings() -> SolarSettings:
+    """환경변수에서 Solar 설정을 읽습니다.
+
+    API 키는 런타임 환경변수 또는 커밋되지 않는 로컬 .env 로더를 통해
+    주입해야 합니다. 이 함수는 파일을 직접 읽지 않습니다.
+    """
+
+    load_dotenv(".env")
+    load_dotenv(".env.local")
+
     api_key = os.environ.get("SOLAR_API_KEY")
     if not api_key:
         raise RuntimeError("SOLAR_API_KEY 환경변수가 설정되지 않았습니다.")

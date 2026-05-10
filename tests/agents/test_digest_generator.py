@@ -215,6 +215,10 @@ def test_load_solar_pro_digest_prompt_contains_output_contract():
     assert "Solar Pro 3 Daily Digest" in prompt
     assert "evidence_document_ids" in prompt
     assert "명시된 근거 없음" in prompt
+    assert "기존 기술 대비 차별점 및 한계" in prompt
+    assert "일반 템플릿 문구" in prompt
+    assert "groundedness_score" in prompt
+    assert "항상 `0.0`" in prompt
 
 
 def test_generator_calls_configured_digest_model_and_parses_response():
