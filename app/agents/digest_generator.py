@@ -1,6 +1,6 @@
 """Daily Digest 생성 응답 파서.
 
-이 모듈은 Solar Pro 2 호출 자체가 아니라, 모델 응답을 내부 Digest 계약으로
+이 모듈은 Solar Pro 3 호출 자체가 아니라, 모델 응답을 내부 Digest 계약으로
 검증하는 책임만 가진다.
 """
 
@@ -23,7 +23,7 @@ PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "solar_pro_diges
 
 
 class SolarProDigestResponseParser:
-    """Solar Pro 2 Digest JSON 응답을 내부 결과 모델로 변환합니다."""
+    """Solar Pro 3 Digest JSON 응답을 내부 결과 모델로 변환합니다."""
 
     def parse(
         self,
@@ -47,10 +47,10 @@ class SolarProDigestResponseParser:
             raise ValueError("Solar Pro Digest 응답의 digest_id가 요청 digest_date와 맞지 않습니다.")
 
         invalid_models = [
-            item.llm_model for item in result.items if item.llm_model != "solar-pro-2"
+            item.llm_model for item in result.items if item.llm_model != "solar-pro-3"
         ]
         if invalid_models:
-            raise ValueError("Digest item의 llm_model은 solar-pro-2여야 합니다.")
+            raise ValueError("Digest item의 llm_model은 solar-pro-3이어야 합니다.")
 
         return result
 

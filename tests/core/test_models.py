@@ -1,4 +1,4 @@
-"""Document 모델 검증 테스트.
+﻿"""Document 모델 검증 테스트.
 
 api-spec.md 11장의 필드와 enum을 Pydantic으로 강제하는지 확인한다.
 """
@@ -164,7 +164,7 @@ def test_digest_item_matches_public_digest_contract():
         evidence_document_ids=["doc_001"],
     )
 
-    assert item.llm_model == "solar-pro-2"
+    assert item.llm_model == "solar-pro-3"
     assert item.evidence_document_ids == ["doc_001"]
 
 

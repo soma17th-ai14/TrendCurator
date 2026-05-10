@@ -11,6 +11,7 @@ class SolarSettings:
     api_key: str
     base_url: str = "https://api.upstage.ai/v1"
     mini_model: str = "solar-mini"
+    digest_model: str = "solar-pro3"
 
 
 def get_solar_settings() -> SolarSettings:
@@ -28,4 +29,5 @@ def get_solar_settings() -> SolarSettings:
         api_key=api_key,
         base_url=os.environ.get("SOLAR_BASE_URL", SolarSettings.base_url),
         mini_model=os.environ.get("SOLAR_MINI_MODEL", SolarSettings.mini_model),
+        digest_model=os.environ.get("SOLAR_DIGEST_MODEL", SolarSettings.digest_model),
     )

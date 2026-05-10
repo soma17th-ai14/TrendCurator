@@ -82,7 +82,7 @@ class DigestItem(BaseModel):
     critique: str
     tags: list[str] = Field(default_factory=list)
     evidence_document_ids: list[str] = Field(default_factory=list)
-    llm_model: str = "solar-pro-2"
+    llm_model: str = "solar-pro-3"
 
 
 class SolarProDigestGenerationRequest(BaseModel):
