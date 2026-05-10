@@ -5,6 +5,7 @@ from app.core.settings import get_solar_settings
 
 def test_get_solar_settings_requires_api_key(monkeypatch):
     monkeypatch.delenv("SOLAR_API_KEY", raising=False)
+    monkeypatch.setattr("app.core.settings.load_dotenv", lambda *args, **kwargs: None)
 
     with pytest.raises(RuntimeError, match="SOLAR_API_KEY"):
         get_solar_settings()

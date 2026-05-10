@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+from dotenv import load_dotenv
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,9 @@ def get_solar_settings() -> SolarSettings:
     API 키는 런타임 환경변수 또는 커밋되지 않는 로컬 .env 로더를 통해
     주입해야 합니다. 이 함수는 파일을 직접 읽지 않습니다.
     """
+
+    load_dotenv(".env")
+    load_dotenv(".env.local")
 
     api_key = os.environ.get("SOLAR_API_KEY")
     if not api_key:
