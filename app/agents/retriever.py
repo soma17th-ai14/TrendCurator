@@ -29,9 +29,10 @@ class Retriever:
         date_from: date | None = None,
         date_to: date | None = None,
         sources: list[Source] | None = None,
+        categories: list[str] | None = None,
     ) -> list[DigestSearchResult]:
         query_vector = self._embedding.embed_query(query)
-        where = _build_where(date_from, date_to, sources)
+        where = _build_where(date_from, date_to, sources, categories)
         raw = self._chroma.search(query_vector, top_k=top_k * 3, where=where)
         return _deduplicate(raw, top_k)
 
@@ -40,6 +41,7 @@ def _build_where(
     date_from: date | None,
     date_to: date | None,
     sources: list[str] | None,
+    categories: list[str] | None = None,
 ) -> dict | None:
     conditions = []
     if date_from:
@@ -48,6 +50,8 @@ def _build_where(
         conditions.append({"published_at": {"$lte": date_to.isoformat()}})
     if sources:
         conditions.append({"source": {"$in": list(sources)}})
+    if categories:
+        conditions.append({"category": {"$in": list(categories)}})
 
     if not conditions:
         return None

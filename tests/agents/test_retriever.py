@@ -109,6 +109,18 @@ def test_build_where_multiple_conditions():
     assert len(conditions) == 3
 
 
+def test_build_where_categories_filter():
+    result = _build_where(None, None, None, ["agent", "rag"])
+    assert result == {"category": {"$in": ["agent", "rag"]}}
+
+
+def test_build_where_all_filters():
+    result = _build_where(date(2026, 5, 1), date(2026, 5, 10), ["huggingface"], ["agent"])
+    assert result is not None
+    assert "$and" in result
+    assert len(result["$and"]) == 4
+
+
 def test_search_passes_where_filter_to_chroma():
     retriever, _, chroma = make_retriever()
 
@@ -116,3 +128,12 @@ def test_search_passes_where_filter_to_chroma():
 
     call_kwargs = chroma.search.call_args[1]
     assert call_kwargs["where"] == {"source": {"$in": ["huggingface"]}}
+
+
+def test_search_passes_categories_filter_to_chroma():
+    retriever, _, chroma = make_retriever()
+
+    retriever.search(query="테스트", categories=["agent"])
+
+    call_kwargs = chroma.search.call_args[1]
+    assert call_kwargs["where"] == {"category": {"$in": ["agent"]}}

@@ -64,6 +64,7 @@ def search_documents(
         date_from=request.date_from,
         date_to=request.date_to,
         sources=request.sources or None,
+        categories=request.categories or None,
     )
 
     items = [

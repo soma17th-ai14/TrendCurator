@@ -95,7 +95,7 @@ class ChromaClient:
                 chunk_id=chunk_id,
                 document_id=metadata.get("document_id", ""),
                 text=text,
-                similarity_score=round(1 - distance, 4),
+                similarity_score=round(max(0.0, min(1.0, 1 - distance)), 4),
                 metadata=metadata,
             ))
 

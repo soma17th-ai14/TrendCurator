@@ -85,6 +85,7 @@ def test_search_passes_filters_to_retriever(client):
             "date_from": "2026-05-01",
             "date_to": "2026-05-10",
             "sources": ["huggingface"],
+            "categories": ["agent", "rag"],
         },
     )
     mock_retriever.search.assert_called_once()
@@ -93,6 +94,7 @@ def test_search_passes_filters_to_retriever(client):
     assert call_kwargs["date_from"] == date(2026, 5, 1)
     assert call_kwargs["date_to"] == date(2026, 5, 10)
     assert call_kwargs["sources"] == ["huggingface"]
+    assert call_kwargs["categories"] == ["agent", "rag"]
 
 
 def test_search_empty_results(client):
