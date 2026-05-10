@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import date, datetime, time
-from typing import Callable, Optional
+from datetime import date, datetime, time, timedelta, timezone, tzinfo
+from typing import Callable, Literal, Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
@@ -13,8 +13,7 @@ class SchedulerConfigError(ValueError):
     """스케줄러 설정이 API 계약과 맞지 않을 때 발생합니다."""
 
 
-class SchedulerRunSkipped(RuntimeError):
-    """스케줄러 실행 시각이 되기 전에 실행을 요청했을 때 발생합니다."""
+SchedulerSkippedReason = Literal["disabled", "before_scheduled_time", "already_ran_today"]
 
 
 @dataclass(frozen=True)
@@ -40,8 +39,8 @@ class SchedulerConfig:
         return parse_schedule_time(self.time)
 
     @property
-    def zoneinfo(self) -> ZoneInfo:
-        return ZoneInfo(self.timezone)
+    def zoneinfo(self) -> tzinfo:
+        return get_timezone(self.timezone)
 
 
 @dataclass(frozen=True)
@@ -62,6 +61,7 @@ class SchedulerRunResult:
     run_date: Optional[date]
     last_run_at: Optional[datetime]
     job_id: Optional[str] = None
+    skipped_reason: Optional[SchedulerSkippedReason] = None
 
 
 PipelineRunner = Callable[[date, SchedulerConfig], Optional[str]]
@@ -80,25 +80,38 @@ class SchedulerService:
         return self._state
 
     def should_run(self, now: Optional[datetime] = None) -> bool:
+        return self.skip_reason(now) is None
+
+    def skip_reason(self, now: Optional[datetime] = None) -> Optional[SchedulerSkippedReason]:
         config = self._state.config
         if not config.enabled:
-            return False
+            return "disabled"
 
         local_now = self._local_now(now)
         if local_now.time() < config.scheduled_time:
-            return False
+            return "before_scheduled_time"
 
-        return self._last_run_date() != local_now.date()
+        if self._last_run_date() == local_now.date():
+            return "already_ran_today"
+
+        return None
 
     def run_due(
         self,
         runner: PipelineRunner,
         now: Optional[datetime] = None,
     ) -> SchedulerRunResult:
-        if not self.should_run(now):
-            raise SchedulerRunSkipped("scheduler is not due to run")
-
         local_now = self._local_now(now)
+        skipped_reason = self.skip_reason(local_now)
+        if skipped_reason is not None:
+            return SchedulerRunResult(
+                ran=False,
+                run_date=None,
+                last_run_at=self._state.last_run_at,
+                job_id=None,
+                skipped_reason=skipped_reason,
+            )
+
         run_date = local_now.date()
         job_id = runner(run_date, self._state.config)
         self._state = self._state.mark_run(local_now)
@@ -108,6 +121,7 @@ class SchedulerService:
             run_date=run_date,
             last_run_at=self._state.last_run_at,
             job_id=job_id,
+            skipped_reason=None,
         )
 
     def next_run_at(self, now: Optional[datetime] = None) -> datetime:
@@ -148,14 +162,22 @@ def parse_schedule_time(value: str) -> time:
     return parsed.replace(second=0, microsecond=0)
 
 
-def validate_timezone(value: str) -> None:
+def get_timezone(value: str) -> tzinfo:
     try:
-        ZoneInfo(value)
+        return ZoneInfo(value)
     except ZoneInfoNotFoundError as exc:
+        if value == "UTC":
+            return timezone.utc
+        if value == "Asia/Seoul":
+            return timezone(timedelta(hours=9), name="Asia/Seoul")
         raise SchedulerConfigError(f"unknown timezone: {value}") from exc
 
 
-def ensure_timezone(value: datetime, timezone: ZoneInfo) -> datetime:
+def validate_timezone(value: str) -> None:
+    get_timezone(value)
+
+
+def ensure_timezone(value: datetime, timezone: tzinfo) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone)
     return value.astimezone(timezone)

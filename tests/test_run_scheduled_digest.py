@@ -1,11 +1,10 @@
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta, timezone
 
 import scripts.run_scheduled_digest as entrypoint
 from app.services.scheduler import SchedulerConfig, SchedulerService, SchedulerState
 
 
-SEOUL = ZoneInfo("Asia/Seoul")
+SEOUL = timezone(timedelta(hours=9), name="Asia/Seoul")
 
 
 def test_run_once_skips_before_scheduled_time(capsys) -> None:
@@ -17,7 +16,9 @@ def test_run_once_skips_before_scheduled_time(capsys) -> None:
     )
 
     assert exit_code == entrypoint.EXIT_SUCCESS
-    assert "스케줄 실행 대상이 아닙니다." in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "스케줄 실행 대상이 아닙니다." in output
+    assert "reason=before_scheduled_time" in output
 
 
 def test_run_once_reports_missing_pipeline_when_due(capsys) -> None:

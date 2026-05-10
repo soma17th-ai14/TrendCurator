@@ -4,11 +4,7 @@ from datetime import date, datetime
 from typing import Optional
 
 from app.core.scheduler_settings import create_scheduler_from_env
-from app.services.scheduler import (
-    SchedulerConfig,
-    SchedulerRunSkipped,
-    SchedulerService,
-)
+from app.services.scheduler import SchedulerConfig, SchedulerService
 
 
 EXIT_SUCCESS = 0
@@ -27,19 +23,19 @@ def run_once(
     now: Optional[datetime] = None,
 ) -> int:
     """현재 스케줄 기준으로 Daily Digest를 한 번 실행합니다."""
-    if not scheduler.should_run(now):
-        next_run_at = scheduler.next_run_at(now).isoformat()
-        print(f"스케줄 실행 대상이 아닙니다. 다음 실행 예정 시각: {next_run_at}")
-        return EXIT_SUCCESS
-
     try:
         result = scheduler.run_due(run_daily_digest_pipeline, now)
-    except SchedulerRunSkipped:
-        print("스케줄 실행 대상이 아닙니다.")
-        return EXIT_SUCCESS
     except NotImplementedError as exc:
         print(str(exc))
         return EXIT_NOT_IMPLEMENTED
+
+    if not result.ran:
+        next_run_at = scheduler.next_run_at(now).isoformat()
+        print(
+            "스케줄 실행 대상이 아닙니다. "
+            f"reason={result.skipped_reason}, 다음 실행 예정 시각: {next_run_at}"
+        )
+        return EXIT_SUCCESS
 
     print(
         "스케줄 실행 완료: "

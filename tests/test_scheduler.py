@@ -1,18 +1,16 @@
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from app.services.scheduler import (
     SchedulerConfig,
     SchedulerConfigError,
-    SchedulerRunSkipped,
     SchedulerService,
     SchedulerState,
 )
 
 
-SEOUL = ZoneInfo("Asia/Seoul")
+SEOUL = timezone(timedelta(hours=9), name="Asia/Seoul")
 
 
 def test_scheduler_config_normalizes_time_and_sources() -> None:
@@ -27,18 +25,35 @@ def test_scheduler_config_rejects_invalid_time() -> None:
         SchedulerConfig(time="25:00")
 
 
-def test_disabled_scheduler_does_not_run() -> None:
+def test_disabled_scheduler_returns_skipped_result() -> None:
     service = SchedulerService(
         SchedulerState(config=SchedulerConfig(enabled=False, time="09:00"))
     )
+    calls = []
 
-    assert service.should_run(datetime(2026, 5, 6, 10, 0, tzinfo=SEOUL)) is False
+    result = service.run_due(
+        lambda run_date, config: calls.append((run_date, config)),
+        datetime(2026, 5, 6, 10, 0, tzinfo=SEOUL),
+    )
+
+    assert result.ran is False
+    assert result.run_date is None
+    assert result.job_id is None
+    assert result.skipped_reason == "disabled"
+    assert calls == []
 
 
-def test_scheduler_does_not_run_before_scheduled_time() -> None:
+def test_scheduler_returns_before_scheduled_time_reason() -> None:
     service = SchedulerService(SchedulerState(config=SchedulerConfig(time="09:00")))
 
+    result = service.run_due(
+        lambda run_date, config: "digest_20260506",
+        datetime(2026, 5, 6, 8, 59, tzinfo=SEOUL),
+    )
+
     assert service.should_run(datetime(2026, 5, 6, 8, 59, tzinfo=SEOUL)) is False
+    assert result.ran is False
+    assert result.skipped_reason == "before_scheduled_time"
 
 
 def test_scheduler_runs_once_per_local_day() -> None:
@@ -48,17 +63,23 @@ def test_scheduler_runs_once_per_local_day() -> None:
     )
     service = SchedulerService(state)
 
-    assert service.should_run(datetime(2026, 5, 6, 10, 0, tzinfo=SEOUL)) is False
+    result = service.run_due(
+        lambda run_date, config: "digest_20260506",
+        datetime(2026, 5, 6, 10, 0, tzinfo=SEOUL),
+    )
+
+    assert result.ran is False
+    assert result.skipped_reason == "already_ran_today"
     assert service.should_run(datetime(2026, 5, 7, 9, 0, tzinfo=SEOUL)) is True
 
 
-def test_run_due_calls_runner_and_records_last_run_at() -> None:
+def test_run_due_calls_runner_and_records_digest_job_id() -> None:
     service = SchedulerService(SchedulerState(config=SchedulerConfig(time="09:00")))
     calls = []
 
     def runner(run_date, config):
         calls.append((run_date, config.sources))
-        return "collect_20260506_001"
+        return "digest_20260506"
 
     result = service.run_due(runner, datetime(2026, 5, 6, 9, 0, tzinfo=SEOUL))
 
@@ -69,16 +90,7 @@ def test_run_due_calls_runner_and_records_last_run_at() -> None:
         )
     ]
     assert result.ran is True
-    assert result.job_id == "collect_20260506_001"
+    assert result.run_date == datetime(2026, 5, 6, tzinfo=SEOUL).date()
+    assert result.job_id == "digest_20260506"
+    assert result.skipped_reason is None
     assert result.last_run_at == datetime(2026, 5, 6, 9, 0, tzinfo=SEOUL)
-
-
-def test_run_due_raises_when_scheduler_is_not_due() -> None:
-    service = SchedulerService(SchedulerState(config=SchedulerConfig(time="09:00")))
-
-    with pytest.raises(SchedulerRunSkipped):
-        service.run_due(
-            lambda run_date, config: None,
-            datetime(2026, 5, 6, 8, 0, tzinfo=SEOUL),
-        )
-
