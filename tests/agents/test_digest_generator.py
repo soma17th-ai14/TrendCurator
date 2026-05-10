@@ -6,10 +6,27 @@ from datetime import date
 import pytest
 
 from app.agents.digest_generator import (
+    SolarProDigestGenerator,
     SolarProDigestResponseParser,
     load_solar_pro_digest_prompt,
 )
 from app.core.models import DigestCandidate, SolarProDigestGenerationRequest
+from app.core.settings import SolarSettings
+
+
+class FakeSolarTextClient:
+    def __init__(self, response: str):
+        self.response = response
+        self.calls: list[dict] = []
+
+    def chat_text(self, **kwargs) -> str:
+        self.calls.append(kwargs)
+        return self.response
+
+
+class FailingSolarTextClient:
+    def chat_text(self, **kwargs) -> str:
+        raise RuntimeError("Solar API 요청 실패")
 
 
 def _candidate(**overrides) -> DigestCandidate:
@@ -198,3 +215,47 @@ def test_load_solar_pro_digest_prompt_contains_output_contract():
     assert "Solar Pro 3 Daily Digest" in prompt
     assert "evidence_document_ids" in prompt
     assert "명시된 근거 없음" in prompt
+
+
+def test_generator_calls_configured_digest_model_and_parses_response():
+    client = FakeSolarTextClient(json.dumps(_response_payload(), ensure_ascii=False))
+    generator = SolarProDigestGenerator(
+        client=client,
+        settings=SolarSettings(api_key="test-key", digest_model="solar-pro3-test"),
+        system_prompt="system prompt",
+    )
+
+    result = generator.generate(_request())
+
+    assert result.digest_id == "digest_20260506"
+    assert client.calls[0]["model"] == "solar-pro3-test"
+    assert client.calls[0]["temperature"] == 0.0
+    assert client.calls[0]["response_format"] == {"type": "json_object"}
+    assert client.calls[0]["messages"][0].role == "system"
+    assert client.calls[0]["messages"][0].content == "system prompt"
+    assert client.calls[0]["messages"][1].role == "user"
+    assert '"digest_date": "2026-05-06"' in client.calls[0]["messages"][1].content
+    assert '"document_id": "doc_001"' in client.calls[0]["messages"][1].content
+
+
+def test_generator_raises_when_client_fails():
+    generator = SolarProDigestGenerator(
+        client=FailingSolarTextClient(),
+        settings=SolarSettings(api_key="test-key", digest_model="solar-pro3-test"),
+        system_prompt="system prompt",
+    )
+
+    with pytest.raises(RuntimeError, match="생성 호출"):
+        generator.generate(_request())
+
+
+def test_generator_raises_when_response_fails_parser_validation():
+    client = FakeSolarTextClient(json.dumps(_response_payload(digest_id="digest_20260507")))
+    generator = SolarProDigestGenerator(
+        client=client,
+        settings=SolarSettings(api_key="test-key", digest_model="solar-pro3-test"),
+        system_prompt="system prompt",
+    )
+
+    with pytest.raises(ValueError, match="digest_id"):
+        generator.generate(_request())
