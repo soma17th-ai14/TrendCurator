@@ -287,3 +287,36 @@ Daily Digest 후보 문서를 바탕으로 요약, 핵심 포인트, 기여, 벤
   ```
 
 근거 문서에 없는 수치, 벤치마크, 주장, 한계를 생성할 수 없으면 해당 필드는 빈 문자열 또는 `"명시된 근거 없음"`으로 반환합니다.
+
+### Digest Generation Adapter
+
+Daily Digest Retriever 결과를 Solar Pro 3 Digest Generator 요청으로 변환하고, 생성 결과를 저장소, Groundedness Check, API 응답 계층이 재사용할 수 있는 실행 결과 계약으로 정리합니다.
+
+- **Input:** `DailyDigestRetrievalResult`, profile keywords
+- **Output:** `SolarProDigestGenerationRequest`
+  ```json
+  {
+    "digest_date": "2026-05-06",
+    "language": "ko",
+    "profile_keywords": ["LangGraph", "Multi-agent", "RAG"],
+    "candidates": []
+  }
+  ```
+
+- **Input:** `DailyDigestRetrievalResult`, `SolarProDigestGenerationResult`
+- **Output:** `DigestGenerationRunResult`
+  ```json
+  {
+    "digest_id": "digest_20260506",
+    "date": "2026-05-06",
+    "status": "completed",
+    "item_count": 10,
+    "candidate_count": 31,
+    "selected_candidate_count": 10,
+    "source_document_ids": ["doc_001"],
+    "groundedness_score": 0.91,
+    "digest": {}
+  }
+  ```
+
+Adapter는 생성 결과의 `date`가 검색 기준일과 일치하는지, 생성된 `items`의 `document_id` 순서가 검색 후보 순서와 일치하는지, `evidence_document_ids`가 검색 후보 안에 있는지 검증합니다.
