@@ -103,8 +103,14 @@ python scripts/evaluate_relevance_samples.py
 
 정기 Daily Digest 실행 진입점은 다음 명령으로 실행합니다.
 
-```powershell
+```bash
 python scripts/run_scheduled_digest.py
+```
+
+Docker Compose 환경에서는 scheduler 서비스의 `command`에서 같은 entrypoint를 호출합니다.
+
+```yaml
+command: ["python", "scripts/run_scheduled_digest.py"]
 ```
 
 스케줄러는 환경변수에서 실행 설정을 읽습니다. 환경변수가 없으면 기본값을 사용합니다.
