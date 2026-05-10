@@ -55,7 +55,7 @@ class IngestionService:
             chunk_ids=[e.chunk.chunk_id for e in embedded],
             texts=[e.chunk.text for e in embedded],
             vectors=[e.vector for e in embedded],
-            metadatas=[e.chunk.metadata for e in embedded],
+            metadatas=[_sanitize_metadata(e.chunk.metadata) for e in embedded],
         )
 
         return IngestionResult(
@@ -65,6 +65,11 @@ class IngestionService:
 
     def ingest_batch(self, decisions: list[RelevanceDecision]) -> list[IngestionResult]:
         return [self.ingest(d) for d in decisions]
+
+
+def _sanitize_metadata(metadata: dict) -> dict:
+    """ChromaDB는 list 타입 메타데이터를 지원하지 않아 쉼표 구분 문자열로 직렬화한다."""
+    return {k: ",".join(v) if isinstance(v, list) else v for k, v in metadata.items()}
 
 
 def _to_chunking_input(decision: RelevanceDecision) -> ChunkingInput:
