@@ -1,14 +1,15 @@
-"""Daily Digest 생성 응답 파서.
+"""Daily Digest 생성기와 응답 파서.
 
-이 모듈은 Solar Pro 3 호출 자체가 아니라, 모델 응답을 내부 Digest 계약으로
-검증하는 책임만 가진다.
+이 모듈은 Solar Pro 3 호출과 모델 응답을 내부 Digest 계약으로 검증하는
+책임을 가진다. 검색, 저장, Groundedness 검증은 서비스 계층에서 조합한다.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from pydantic import ValidationError
 
@@ -17,9 +18,59 @@ from app.core.models import (
     SolarProDigestGenerationRequest,
     SolarProDigestGenerationResult,
 )
+from app.core.settings import SolarSettings
+from app.core.solar_client import SolarClient, SolarMessage
 
 
 PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "solar_pro_digest.md"
+
+
+class SolarTextClient(Protocol):
+    def chat_text(
+        self,
+        *,
+        model: str,
+        messages: list[SolarMessage],
+        temperature: float = 0.2,
+        response_format: dict[str, str] | None = None,
+    ) -> str:
+        ...
+
+
+@dataclass(frozen=True)
+class SolarProDigestGenerator:
+    """Solar Pro 3를 호출해 Daily Digest 생성 결과를 반환합니다."""
+
+    client: SolarTextClient
+    settings: SolarSettings
+    parser: SolarProDigestResponseParser = field(default_factory=lambda: SolarProDigestResponseParser())
+    system_prompt: str = field(default_factory=lambda: load_solar_pro_digest_prompt())
+
+    @classmethod
+    def from_settings(cls, settings: SolarSettings) -> "SolarProDigestGenerator":
+        return cls(client=SolarClient(settings), settings=settings)
+
+    def generate(
+        self,
+        request: SolarProDigestGenerationRequest,
+    ) -> SolarProDigestGenerationResult:
+        try:
+            raw_response = self.client.chat_text(
+                model=self.settings.digest_model,
+                messages=[
+                    SolarMessage(role="system", content=self.system_prompt),
+                    SolarMessage(role="user", content=self._format_request(request)),
+                ],
+                temperature=0.0,
+                response_format={"type": "json_object"},
+            )
+        except Exception as exc:
+            raise RuntimeError("Solar Pro Digest 생성 호출이 실패했습니다.") from exc
+
+        return self.parser.parse(raw_response, request=request)
+
+    def _format_request(self, request: SolarProDigestGenerationRequest) -> str:
+        return json.dumps(request.model_dump(mode="json"), ensure_ascii=False)
 
 
 class SolarProDigestResponseParser:
