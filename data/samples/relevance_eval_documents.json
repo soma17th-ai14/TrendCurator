@@ -1,0 +1,482 @@
+[
+    {
+        "document":  {
+                         "doc_id":  "eval_rel_001",
+                         "source":  "huggingface",
+                         "title":  "Beyond Rule-Based Workflows: An Information-Flow-Orchestrated Multi-Agents Paradigm via Agent-to-Agent Communication from CORAL",
+                         "url":  "https://huggingface.co/papers/2601.09883",
+                         "published_date":  "2026-01-14",
+                         "raw_text":  "A multi-agent system uses information-flow orchestration and agent-to-agent communication instead of fixed rule-based workflows.",
+                         "category_hint":  "multi-agent workflow orchestration",
+                         "external_id":  "eval_rel_001",
+                         "content_hash":  "hash_eval_rel_001",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  true
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_rel_002",
+                         "source":  "huggingface",
+                         "title":  "Spec Kit Agents: Context-Grounded Agentic Workflows",
+                         "url":  "https://huggingface.co/papers/2604.05278",
+                         "published_date":  "2026-04-07",
+                         "raw_text":  "Spec Kit Agents describes context-grounded multi-agent workflows for software development with validation hooks.",
+                         "category_hint":  "coding-agent workflow validation",
+                         "external_id":  "eval_rel_002",
+                         "content_hash":  "hash_eval_rel_002",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  true
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_rel_003",
+                         "source":  "huggingface",
+                         "title":  "ClawMark: A Living-World Benchmark for Multi-Turn, Multi-Day, Multimodal Coworker Agents",
+                         "url":  "https://huggingface.co/papers/2604.23781",
+                         "published_date":  "2026-04-26",
+                         "raw_text":  "A benchmark evaluates language-model coworker agents over multi-day workflows and changing environment states.",
+                         "category_hint":  "agent benchmark multimodal",
+                         "external_id":  "eval_rel_003",
+                         "content_hash":  "hash_eval_rel_003",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  true
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_rel_004",
+                         "source":  "huggingface",
+                         "title":  "Claw-Eval-Live: A Live Agent Benchmark for Evolving Real-World Workflows",
+                         "url":  "https://huggingface.co/papers/2604.28139",
+                         "published_date":  "2026-04-30",
+                         "raw_text":  "A live benchmark evaluates workflow agents against evolving real-world task demands and execution logs.",
+                         "category_hint":  "agent workflow evaluation",
+                         "external_id":  "eval_rel_004",
+                         "content_hash":  "hash_eval_rel_004",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  true
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_rel_005",
+                         "source":  "huggingface",
+                         "title":  "Rethinking the Value of Multi-Agent Workflow: A Strong Single Agent Baseline",
+                         "url":  "https://huggingface.co/papers/2601.12307",
+                         "published_date":  "2026-01-18",
+                         "raw_text":  "The paper compares multi-agent workflows with a strong single-agent baseline and analyzes efficiency tradeoffs.",
+                         "category_hint":  "multi-agent workflow baseline",
+                         "external_id":  "eval_rel_005",
+                         "content_hash":  "hash_eval_rel_005",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  true
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_rel_006",
+                         "source":  "huggingface",
+                         "title":  "Beyond RAG for Agent Memory: Retrieval by Decoupling and Aggregation",
+                         "url":  "https://huggingface.co/papers/2602.02007",
+                         "published_date":  "2026-02-02",
+                         "raw_text":  "The paper studies retrieval for agent memory, where dialogue streams differ from ordinary heterogeneous RAG corpora.",
+                         "category_hint":  "agent memory rag",
+                         "external_id":  "eval_rel_006",
+                         "content_hash":  "hash_eval_rel_006",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  true
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_rel_007",
+                         "source":  "huggingface",
+                         "title":  "MASFactory: A Graph-centric Framework for Orchestrating LLM-Based Multi-Agent Systems with Vibe Graphing",
+                         "url":  "https://huggingface.co/papers/2603.06007",
+                         "published_date":  "2026-03-06",
+                         "raw_text":  "A graph-centric framework compiles natural-language intent into executable multi-agent workflows.",
+                         "category_hint":  "multi-agent framework orchestration",
+                         "external_id":  "eval_rel_007",
+                         "content_hash":  "hash_eval_rel_007",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  true
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_rel_008",
+                         "source":  "huggingface",
+                         "title":  "Memory for Autonomous LLM Agents: Mechanisms, Evaluation, and Emerging Frontiers",
+                         "url":  "https://huggingface.co/papers/2603.07670",
+                         "published_date":  "2026-03-08",
+                         "raw_text":  "A survey covers memory mechanisms, evaluation, and emerging directions for autonomous LLM agents.",
+                         "category_hint":  "agent memory survey",
+                         "external_id":  "eval_rel_008",
+                         "content_hash":  "hash_eval_rel_008",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  true
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_rel_009",
+                         "source":  "huggingface",
+                         "title":  "Multi-User Large Language Model Agents",
+                         "url":  "https://huggingface.co/papers/2604.08567",
+                         "published_date":  "2026-03-19",
+                         "raw_text":  "The paper studies agents that must coordinate among multiple users with conflicting objectives and privacy constraints.",
+                         "category_hint":  "agent multi-user coordination",
+                         "external_id":  "eval_rel_009",
+                         "content_hash":  "hash_eval_rel_009",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  true
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_rel_010",
+                         "source":  "huggingface",
+                         "title":  "AgentVista: Evaluating Multimodal Agents in Ultra-Challenging Realistic Visual Scenarios",
+                         "url":  "https://huggingface.co/papers/2602.23166",
+                         "published_date":  "2026-02-26",
+                         "raw_text":  "A benchmark evaluates multimodal agents that perform long-horizon tool interactions across realistic scenarios.",
+                         "category_hint":  "agent multimodal benchmark",
+                         "external_id":  "eval_rel_010",
+                         "content_hash":  "hash_eval_rel_010",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  true
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_rel_011",
+                         "source":  "huggingface",
+                         "title":  "AgentConductor: Topology Evolution for Multi-Agent Competition-Level Code Generation",
+                         "url":  "https://huggingface.co/papers/2602.17100",
+                         "published_date":  "2026-02-19",
+                         "raw_text":  "The method optimizes multi-agent topologies for competition-level code generation through an LLM-based orchestrator.",
+                         "category_hint":  "multi-agent code-generation orchestrator",
+                         "external_id":  "eval_rel_011",
+                         "content_hash":  "hash_eval_rel_011",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  true
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_rel_012",
+                         "source":  "huggingface",
+                         "title":  "SoK: Agentic Retrieval-Augmented Generation (RAG): Taxonomy, Architectures, Evaluation, and Research Directions",
+                         "url":  "https://huggingface.co/papers/2603.07379",
+                         "published_date":  "2026-03-07",
+                         "raw_text":  "Agentic RAG is framed as sequential decision-making with iterative retrieval, memory, and reliability concerns.",
+                         "category_hint":  "agentic-rag architecture evaluation",
+                         "external_id":  "eval_rel_012",
+                         "content_hash":  "hash_eval_rel_012",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  true
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_irrel_001",
+                         "source":  "huggingface",
+                         "title":  "PixelDiT: Pixel Diffusion Transformers for Image Generation",
+                         "url":  "https://huggingface.co/papers/2511.20645",
+                         "published_date":  "2025-11-25",
+                         "raw_text":  "A pixel-space diffusion transformer improves image and text-to-image generation without a pretrained autoencoder.",
+                         "category_hint":  "image-generation diffusion",
+                         "external_id":  "eval_irrel_001",
+                         "content_hash":  "hash_eval_irrel_001",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  false
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_irrel_002",
+                         "source":  "huggingface",
+                         "title":  "StructDiff: A Structure-Preserving and Spatially Controllable Diffusion Model for Single-Image Generation",
+                         "url":  "https://huggingface.co/papers/2604.12575",
+                         "published_date":  "2026-04-14",
+                         "raw_text":  "A single-scale diffusion model preserves structural layout for controllable single-image generation.",
+                         "category_hint":  "image-generation diffusion",
+                         "external_id":  "eval_irrel_002",
+                         "content_hash":  "hash_eval_irrel_002",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  false
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_irrel_003",
+                         "source":  "huggingface",
+                         "title":  "One-step Latent-free Image Generation with Pixel Mean Flows",
+                         "url":  "https://huggingface.co/papers/2601.22158",
+                         "published_date":  "2026-01-29",
+                         "raw_text":  "Pixel MeanFlow introduces one-step latent-free image generation at multiple ImageNet resolutions.",
+                         "category_hint":  "image-generation flow-model",
+                         "external_id":  "eval_irrel_003",
+                         "content_hash":  "hash_eval_irrel_003",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  false
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_irrel_004",
+                         "source":  "huggingface",
+                         "title":  "UltraImage: Rethinking Resolution Extrapolation in Image Diffusion Transformers",
+                         "url":  "https://huggingface.co/papers/2512.04504",
+                         "published_date":  "2025-12-04",
+                         "raw_text":  "The framework improves high-resolution image generation by addressing repetition and quality degradation.",
+                         "category_hint":  "image-generation diffusion-transformer",
+                         "external_id":  "eval_irrel_004",
+                         "content_hash":  "hash_eval_irrel_004",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  false
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_irrel_005",
+                         "source":  "huggingface",
+                         "title":  "Nucleus-Image: Sparse MoE for Image Generation",
+                         "url":  "https://huggingface.co/papers/2604.12163",
+                         "published_date":  "2026-04-14",
+                         "raw_text":  "A sparse mixture-of-experts diffusion transformer improves text-to-image generation efficiency and quality.",
+                         "category_hint":  "image-generation moe",
+                         "external_id":  "eval_irrel_005",
+                         "content_hash":  "hash_eval_irrel_005",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  false
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_irrel_006",
+                         "source":  "huggingface",
+                         "title":  "DreamLite: A Lightweight On-Device Unified Model for Image Generation and Editing",
+                         "url":  "https://huggingface.co/papers/2603.28713",
+                         "published_date":  "2026-03-30",
+                         "raw_text":  "A compact on-device diffusion model supports text-to-image generation and text-guided editing.",
+                         "category_hint":  "image-generation on-device",
+                         "external_id":  "eval_irrel_006",
+                         "content_hash":  "hash_eval_irrel_006",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  false
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_irrel_007",
+                         "source":  "huggingface",
+                         "title":  "Creative Image Generation with Diffusion Model",
+                         "url":  "https://huggingface.co/papers/2601.22125",
+                         "published_date":  "2026-01-29",
+                         "raw_text":  "The method drives diffusion models toward low-probability image regions to produce more creative visual outputs.",
+                         "category_hint":  "image-generation diffusion",
+                         "external_id":  "eval_irrel_007",
+                         "content_hash":  "hash_eval_irrel_007",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  false
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_irrel_008",
+                         "source":  "huggingface",
+                         "title":  "DiffiT: Diffusion Vision Transformers for Image Generation",
+                         "url":  "https://huggingface.co/papers/2312.02139",
+                         "published_date":  "2023-12-04",
+                         "raw_text":  "A diffusion model with vision transformers improves image generation using hierarchical architecture and time-dependent attention.",
+                         "category_hint":  "image-generation vision-transformer",
+                         "external_id":  "eval_irrel_008",
+                         "content_hash":  "hash_eval_irrel_008",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  false
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_irrel_009",
+                         "source":  "huggingface",
+                         "title":  "SSDD: Single-Step Diffusion Decoder for Efficient Image Tokenization",
+                         "url":  "https://huggingface.co/papers/2510.04961",
+                         "published_date":  "2025-10-06",
+                         "raw_text":  "A single-step diffusion decoder improves reconstruction quality and sampling speed for image tokenization.",
+                         "category_hint":  "image-tokenization diffusion",
+                         "external_id":  "eval_irrel_009",
+                         "content_hash":  "hash_eval_irrel_009",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  false
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_irrel_010",
+                         "source":  "huggingface",
+                         "title":  "VibeVoice ASR",
+                         "url":  "https://huggingface.co/docs/transformers/model_doc/vibevoice_asr",
+                         "published_date":  "2026-03-02",
+                         "raw_text":  "An automatic speech recognition model processes long audio using acoustic and semantic tokenizers with a language decoder.",
+                         "category_hint":  "speech-recognition audio",
+                         "external_id":  "eval_irrel_010",
+                         "content_hash":  "hash_eval_irrel_010",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  false
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_irrel_011",
+                         "source":  "huggingface",
+                         "title":  "Cohere Transcribe 03 2026 automatic speech recognition model",
+                         "url":  "https://huggingface.co/models?other=automatic-speech-recognition",
+                         "published_date":  "2026-03-01",
+                         "raw_text":  "A model listing highlights automatic speech recognition systems for audio transcription workloads.",
+                         "category_hint":  "speech-recognition model",
+                         "external_id":  "eval_irrel_011",
+                         "content_hash":  "hash_eval_irrel_011",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  false
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_irrel_012",
+                         "source":  "huggingface",
+                         "title":  "Autoregressive Model Beats Diffusion: Llama for Scalable Image Generation",
+                         "url":  "https://huggingface.co/papers/2406.06525",
+                         "published_date":  "2024-06-10",
+                         "raw_text":  "LlamaGen applies next-token prediction to visual generation and reports image generation performance.",
+                         "category_hint":  "image-generation autoregressive",
+                         "external_id":  "eval_irrel_012",
+                         "content_hash":  "hash_eval_irrel_012",
+                         "metadata":  {
+                                          "label_source":  "web_search"
+                                      }
+                     },
+        "expected_is_relevant":  false
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_boundary_001",
+                         "source":  "huggingface",
+                         "title":  "Agentic RAG Controller for Research Assistants",
+                         "url":  "https://example.com/boundary/agentic-rag-controller",
+                         "published_date":  "2026-05-07",
+                         "raw_text":  "The system plans iterative retrieval steps, stores memory, and calls tools while an agent decides the next action.",
+                         "category_hint":  "agentic-rag retrieval memory",
+                         "external_id":  "eval_boundary_001",
+                         "content_hash":  "hash_eval_boundary_001",
+                         "metadata":  {
+                                          "label_source":  "manual_boundary_case",
+                                          "case_type":  "agentic_rag_relevant"
+                                      }
+                     },
+        "expected_is_relevant":  true
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_boundary_002",
+                         "source":  "huggingface",
+                         "title":  "RAG Evaluation for Legal Question Answering",
+                         "url":  "https://example.com/boundary/legal-rag-evaluation",
+                         "published_date":  "2026-05-07",
+                         "raw_text":  "This paper compares retrieval quality and answer faithfulness for legal QA datasets and focuses on corpus construction.",
+                         "category_hint":  "rag retrieval evaluation",
+                         "external_id":  "eval_boundary_002",
+                         "content_hash":  "hash_eval_boundary_002",
+                         "metadata":  {
+                                          "label_source":  "manual_boundary_case",
+                                          "case_type":  "general_rag_irrelevant"
+                                      }
+                     },
+        "expected_is_relevant":  false
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_boundary_003",
+                         "source":  "hackernews",
+                         "title":  "Enterprise Workflow Orchestration for Data Operations",
+                         "url":  "https://example.com/boundary/workflow-orchestration",
+                         "published_date":  "2026-05-07",
+                         "raw_text":  "The platform schedules data jobs and coordinates approval workflows across business teams.",
+                         "category_hint":  "workflow orchestration data-engineering",
+                         "external_id":  "eval_boundary_003",
+                         "content_hash":  "hash_eval_boundary_003",
+                         "metadata":  {
+                                          "label_source":  "manual_boundary_case",
+                                          "case_type":  "general_workflow_irrelevant"
+                                      }
+                     },
+        "expected_is_relevant":  false
+    },
+    {
+        "document":  {
+                         "doc_id":  "eval_boundary_004",
+                         "source":  "hackernews",
+                         "title":  "Open-source Function Calling Router for Tool-Using Assistants",
+                         "url":  "https://example.com/boundary/function-calling-router",
+                         "published_date":  "2026-05-07",
+                         "raw_text":  "The router selects tools, validates function arguments, and keeps execution traces for assistant workflows.",
+                         "category_hint":  "function calling tool-use assistant",
+                         "external_id":  "eval_boundary_004",
+                         "content_hash":  "hash_eval_boundary_004",
+                         "metadata":  {
+                                          "label_source":  "manual_boundary_case",
+                                          "case_type":  "tool_use_relevant"
+                                      }
+                     },
+        "expected_is_relevant":  true
+    }
+]
