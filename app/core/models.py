@@ -100,6 +100,32 @@ class SolarProDigestGenerationResult(BaseModel):
     groundedness_score: float = Field(ge=0.0, le=1.0)
 
 
+class DigestGenerationRunResult(BaseModel):
+    digest_id: str
+    date: date
+    status: Literal["completed"] = "completed"
+    item_count: int = Field(ge=0)
+    candidate_count: int = Field(ge=0)
+    selected_candidate_count: int = Field(ge=0)
+    source_document_ids: list[str] = Field(default_factory=list)
+    groundedness_score: float = Field(ge=0.0, le=1.0)
+    digest: SolarProDigestGenerationResult
+
+    @model_validator(mode="after")
+    def counts_match_digest(self) -> "DigestGenerationRunResult":
+        if self.item_count != len(self.digest.items):
+            raise ValueError("item_count must match digest items length")
+        if self.selected_candidate_count > self.candidate_count:
+            raise ValueError("selected_candidate_count cannot exceed candidate_count")
+        if self.item_count > self.selected_candidate_count:
+            raise ValueError("item_count cannot exceed selected_candidate_count")
+        if self.date != self.digest.date:
+            raise ValueError("date must match digest date")
+        if self.digest_id != self.digest.digest_id:
+            raise ValueError("digest_id must match digest digest_id")
+        return self
+
+
 @dataclass(frozen=True)
 class NormalizedDocument:
     """파이프라인 내부 단계가 공유하는 정규화 문서 계약."""
