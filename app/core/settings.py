@@ -22,6 +22,7 @@ def get_solar_settings() -> SolarSettings:
     주입해야 합니다. 이 함수는 파일을 직접 읽지 않습니다.
     """
 
+    load_dotenv(".env")
     load_dotenv(".env.local")
 
     api_key = os.environ.get("SOLAR_API_KEY")
