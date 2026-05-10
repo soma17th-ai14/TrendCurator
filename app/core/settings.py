@@ -1,10 +1,12 @@
-"""환경변수에서 애플리케이션 설정을 읽습니다."""
+"""환경변수 기반 설정 로더."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
+
 from dotenv import load_dotenv
+from pydantic_settings import BaseSettings
 
 
 @dataclass(frozen=True)
@@ -35,3 +37,20 @@ def get_solar_settings() -> SolarSettings:
         mini_model=os.environ.get("SOLAR_MINI_MODEL", SolarSettings.mini_model),
         digest_model=os.environ.get("SOLAR_DIGEST_MODEL", SolarSettings.digest_model),
     )
+
+
+class Settings(BaseSettings):
+    solar_api_key: str
+    solar_base_url: str = "https://api.upstage.ai/v1"
+    solar_mini_model: str = "solar-mini"
+    solar_pro2_model: str = "solar-pro2"
+    solar_embedding_query_model: str = "embedding-query"
+    solar_embedding_passage_model: str = "embedding-passage"
+    chroma_data_path: str = "./chroma_data"
+    chroma_collection_name: str = "trendcurator"
+
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+
+
+def get_settings() -> Settings:
+    return Settings()

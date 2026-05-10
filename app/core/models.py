@@ -158,3 +158,26 @@ class NormalizedDocument:
             ]
             if part
         )
+
+
+@dataclass(frozen=True)
+class ChunkingInput:
+    """pipeline 경계에서 Chunker로 넘기는 입력 계약.
+
+    RelevanceDecision → ChunkingInput 어댑터는 service/pipeline 경계에서 처리한다.
+    """
+
+    document: NormalizedDocument
+    relevance_score: float
+    matched_keywords: list[str]
+
+
+@dataclass
+class Chunk:
+    """Chunker가 출력하는 텍스트 단위."""
+
+    chunk_id: str
+    document_id: str
+    chunk_index: int
+    text: str
+    metadata: dict[str, Any]
