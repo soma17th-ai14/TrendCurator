@@ -118,8 +118,44 @@ def test_parse_rejects_unknown_item_document_id():
     payload = _response_payload()
     payload["items"][0]["document_id"] = "doc_missing"
 
-    with pytest.raises(ValueError, match="후보 문서"):
+    with pytest.raises(ValueError, match="후보 문서와 일치"):
         parser.parse(payload, request=_request())
+
+
+def test_parse_rejects_missing_candidate_item():
+    parser = SolarProDigestResponseParser()
+    request = SolarProDigestGenerationRequest(
+        digest_date=date(2026, 5, 6),
+        profile_keywords=["LangGraph", "Multi-agent"],
+        candidates=[
+            _candidate(document_id="doc_001"),
+            _candidate(document_id="doc_002", url="https://example.com/doc_002"),
+        ],
+    )
+    payload = _response_payload()
+
+    with pytest.raises(ValueError, match="후보 문서와 일치"):
+        parser.parse(payload, request=request)
+
+
+def test_parse_rejects_candidate_item_order_mismatch():
+    parser = SolarProDigestResponseParser()
+    request = SolarProDigestGenerationRequest(
+        digest_date=date(2026, 5, 6),
+        profile_keywords=["LangGraph", "Multi-agent"],
+        candidates=[
+            _candidate(document_id="doc_001"),
+            _candidate(document_id="doc_002", url="https://example.com/doc_002"),
+        ],
+    )
+    payload = _response_payload()
+    second_item = dict(payload["items"][0])
+    second_item["document_id"] = "doc_002"
+    second_item["evidence_document_ids"] = ["doc_002"]
+    payload["items"] = [second_item, payload["items"][0]]
+
+    with pytest.raises(ValueError, match="순서"):
+        parser.parse(payload, request=request)
 
 
 def test_parse_rejects_empty_evidence_document_ids():
