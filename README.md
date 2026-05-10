@@ -99,6 +99,29 @@ python scripts/smoke_solar_relevance.py
 python scripts/evaluate_relevance_samples.py
 ```
 
+## 스케줄러 설정
+
+정기 Daily Digest 실행 진입점은 다음 명령으로 실행합니다.
+
+```bash
+python scripts/run_scheduled_digest.py
+```
+
+Docker Compose 환경에서는 scheduler 서비스의 `command`에서 같은 entrypoint를 호출합니다.
+
+```yaml
+command: ["python", "scripts/run_scheduled_digest.py"]
+```
+
+스케줄러는 환경변수에서 실행 설정을 읽습니다. 환경변수가 없으면 기본값을 사용합니다.
+
+```env
+SCHEDULER_ENABLED=true
+SCHEDULER_TIME=09:00
+SCHEDULER_TIMEZONE=Asia/Seoul
+SCHEDULER_SOURCES=huggingface,hackernews
+```
+
 ## 팀 역할 분담
 
 - 데이터 수집: 소스 발굴, 수집 전략, 수집 프로필, 수집 안정성을 담당합니다.
