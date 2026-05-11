@@ -104,5 +104,16 @@ class ChromaClient:
     def count(self) -> int:
         return self._collection.count()
 
+    def get_texts_by_document_ids(self, document_ids: list[str]) -> list[str]:
+        if not document_ids:
+            return []
+
+        results = self._collection.get(
+            where={"document_id": {"$in": document_ids}},
+            include=["documents"],
+        )
+        documents = results.get("documents") or []
+        return [text for text in documents if isinstance(text, str)]
+
     def delete(self, chunk_ids: list[str]) -> None:
         self._collection.delete(ids=chunk_ids)

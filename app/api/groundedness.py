@@ -5,6 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from app.core.chroma_client import ChromaClient
+from app.core.settings import Settings, get_settings
 from app.services.groundedness import (
     GroundednessChecker,
     GroundednessCheckRequest as ServiceGroundednessRequest,
@@ -40,14 +42,26 @@ def get_groundedness_checker() -> GroundednessChecker:
     return GroundednessChecker()
 
 
+def get_chroma(settings: Settings = Depends(get_settings)) -> ChromaClient:
+    return ChromaClient(settings)
+
+
 @router.post("/groundedness/check", response_model=GroundednessCheckResponse)
 def check_groundedness(
     request: GroundednessCheckRequest,
     checker: GroundednessChecker = Depends(get_groundedness_checker),
+    chroma: ChromaClient = Depends(get_chroma),
 ) -> GroundednessCheckResponse:
+    contexts = request.contexts
+    if not contexts and request.source_document_ids:
+        try:
+            contexts = chroma.get_texts_by_document_ids(request.source_document_ids)
+        except Exception as exc:
+            return GroundednessCheckResponse(success=False, error=str(exc))
+
     result = checker.check(ServiceGroundednessRequest(
         answer=request.answer,
-        contexts=request.contexts,
+        contexts=contexts,
         question=request.question,
         threshold=request.threshold,
     ))
