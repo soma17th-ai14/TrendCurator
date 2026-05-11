@@ -138,3 +138,41 @@ SCHEDULER_SOURCES=huggingface,hackernews
 4. 요약
 5. 비교
 6. UI
+
+## UI / integration / validation / deployment notes
+
+This repository now includes the UI and integration layer for the education assignment:
+
+- Streamlit UI in `frontend/streamlit_app.py`
+- FastAPI integration endpoints for dashboard, query, digest generation, and groundedness checks
+- LangGraph-based query orchestration with a sequential fallback before dependencies are installed
+- Groundedness Check service with an injectable RAGAS evaluator contract and a deterministic fallback scorer
+- Docker Compose services for the FastAPI backend and Streamlit frontend
+
+### Local run
+
+```bash
+uvicorn app.main:app --reload
+streamlit run frontend/streamlit_app.py
+```
+
+Streamlit calls `http://localhost:8000` by default. Override it with `TRENDCURATOR_API_BASE_URL`.
+
+### Docker Compose run
+
+```bash
+docker compose up --build
+```
+
+- FastAPI: `http://localhost:8000`
+- Streamlit: `http://localhost:8501`
+
+Set `SOLAR_API_KEY` before running when real Solar generation or embedding calls are needed. Without the key, the UI and fallback groundedness/demo paths remain available.
+
+### Added API surface
+
+- `GET /health`
+- `GET /dashboard`
+- `POST /query`
+- `POST /groundedness/check`
+- `POST /digest/generate`

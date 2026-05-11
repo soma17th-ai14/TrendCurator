@@ -40,7 +40,7 @@ def get_solar_settings() -> SolarSettings:
 
 
 class Settings(BaseSettings):
-    solar_api_key: str
+    solar_api_key: str = ""
     solar_base_url: str = "https://api.upstage.ai/v1"
     solar_mini_model: str = "solar-mini"
     solar_pro2_model: str = "solar-pro2"
