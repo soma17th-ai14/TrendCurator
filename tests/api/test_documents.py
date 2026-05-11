@@ -43,7 +43,7 @@ def client():
 def test_search_returns_success(client):
     test_client, _ = client
     response = test_client.post(
-        "/documents/search",
+        "/api/v1/documents/search",
         json={"query": "멀티 에이전트 프레임워크"},
     )
     assert response.status_code == 200
@@ -56,7 +56,7 @@ def test_search_returns_success(client):
 def test_search_rewritten_query_matches_input(client):
     test_client, _ = client
     response = test_client.post(
-        "/documents/search",
+        "/api/v1/documents/search",
         json={"query": "RAG 파이프라인"},
     )
     assert response.json()["data"]["rewritten_query"] == "RAG 파이프라인"
@@ -65,7 +65,7 @@ def test_search_rewritten_query_matches_input(client):
 def test_search_result_fields(client):
     test_client, _ = client
     response = test_client.post(
-        "/documents/search",
+        "/api/v1/documents/search",
         json={"query": "테스트"},
     )
     result = response.json()["data"]["results"][0]
@@ -78,7 +78,7 @@ def test_search_result_fields(client):
 def test_search_passes_filters_to_retriever(client):
     test_client, mock_retriever = client
     test_client.post(
-        "/documents/search",
+        "/api/v1/documents/search",
         json={
             "query": "에이전트",
             "top_k": 5,
@@ -101,7 +101,7 @@ def test_search_empty_results(client):
     test_client, mock_retriever = client
     mock_retriever.search.return_value = []
     response = test_client.post(
-        "/documents/search",
+        "/api/v1/documents/search",
         json={"query": "없는 주제"},
     )
     assert response.status_code == 200

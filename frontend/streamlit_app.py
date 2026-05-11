@@ -10,6 +10,7 @@ import streamlit as st
 
 
 API_BASE_URL = os.getenv("TRENDCURATOR_API_BASE_URL", "http://localhost:8000")
+API_PREFIX = "/api/v1"
 
 
 st.set_page_config(page_title="TrendCurator", page_icon="TC", layout="wide")
@@ -50,7 +51,7 @@ dashboard_tab, query_tab, digest_tab, groundedness_tab = st.tabs([
 with dashboard_tab:
     st.subheader("Pipeline status")
     try:
-        payload = api_get("/dashboard")
+        payload = api_get(f"{API_PREFIX}/dashboard")
         if not payload.get("success"):
             st.warning(payload.get("error") or "Dashboard data unavailable")
         else:
@@ -76,7 +77,7 @@ with query_tab:
     base_date = st.date_input("Base date", value=date.today())
     if st.button("Run query", type="primary"):
         try:
-            payload = api_post("/query", {
+            payload = api_post(f"{API_PREFIX}/query", {
                 "question": question,
                 "top_k": top_k,
                 "date_to": base_date.isoformat(),
@@ -105,7 +106,7 @@ with digest_tab:
     keywords = st.text_input("Profile keywords", value="LangGraph, Multi-agent, RAG")
     if st.button("Generate digest", type="primary"):
         try:
-            payload = api_post("/digest/generate", {
+            payload = api_post(f"{API_PREFIX}/digest/generate", {
                 "date": digest_date.isoformat(),
                 "top_k": digest_top_k,
                 "profile_based": True,
@@ -134,7 +135,7 @@ with groundedness_tab:
     threshold = st.slider("Threshold", min_value=0.0, max_value=1.0, value=0.8, step=0.05)
     if st.button("Check groundedness", type="primary"):
         try:
-            payload = api_post("/groundedness/check", {
+            payload = api_post(f"{API_PREFIX}/groundedness/check", {
                 "answer": answer,
                 "contexts": [part.strip() for part in contexts.split("\n\n") if part.strip()],
                 "threshold": threshold,

@@ -172,7 +172,21 @@ Set `SOLAR_API_KEY` before running when real Solar generation or embedding calls
 ### Added API surface
 
 - `GET /health`
-- `GET /dashboard`
-- `POST /query`
-- `POST /groundedness/check`
-- `POST /digest/generate`
+- `GET /api/v1/dashboard`
+- `POST /api/v1/query`
+- `POST /api/v1/groundedness/check`
+- `POST /api/v1/digest/generate`
+
+### Query orchestration
+
+`POST /api/v1/query` uses the query agents from the earlier integration work:
+
+```text
+IntentRouter
+-> GENERAL_QA: QueryRewriter -> Retriever
+-> TREND_COMPARISON: DateRangeParser -> PeriodRetriever
+-> answer generation
+-> GroundednessChecker
+```
+
+If the Solar API key or VectorDB search is unavailable, the workflow returns a warning and an empty-source response instead of failing with a 500 error.

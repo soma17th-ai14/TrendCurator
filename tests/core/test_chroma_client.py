@@ -112,3 +112,20 @@ def test_delete_removes_chunks(client):
     client.delete(["chunk_001"])
 
     assert client.count() == 0
+
+
+def test_get_texts_by_document_ids(client):
+    client.add_batch(
+        chunk_ids=["chunk_001", "chunk_002", "chunk_003"],
+        texts=["first context", "second context", "other context"],
+        vectors=[FAKE_VECTOR, FAKE_VECTOR, FAKE_VECTOR],
+        metadatas=[
+            {"document_id": "doc_001", "source": "huggingface"},
+            {"document_id": "doc_001", "source": "huggingface"},
+            {"document_id": "doc_002", "source": "hackernews"},
+        ],
+    )
+
+    texts = client.get_texts_by_document_ids(["doc_001"])
+
+    assert texts == ["first context", "second context"]
