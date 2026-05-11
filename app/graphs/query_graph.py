@@ -30,6 +30,7 @@ class QueryGraphState(TypedDict, total=False):
     groundedness_passed: bool
     sources: list[dict[str, Any]]
     comparison_metadata: dict[str, Any]
+    warnings: list[str]
 
 
 class SearchClient:
@@ -108,7 +109,8 @@ class QueryGraphRunner:
         return state
 
     def _retrieve_general(self, state: QueryGraphState) -> QueryGraphState:
-        results = self._search_client.search(
+        results = self._safe_search(
+            state,
             query=state["question"],
             top_k=state.get("top_k", 10),
             date_to=state.get("base_date"),
@@ -124,13 +126,15 @@ class QueryGraphRunner:
         period_a_start = period_a_end - timedelta(days=6)
         top_k = state.get("top_k", 10)
 
-        docs_a = self._search_client.search(
+        docs_a = self._safe_search(
+            state,
             query=state["question"],
             top_k=top_k,
             date_from=period_a_start,
             date_to=period_a_end,
         )
-        docs_b = self._search_client.search(
+        docs_b = self._safe_search(
+            state,
             query=state["question"],
             top_k=top_k,
             date_from=period_b_start,
@@ -187,6 +191,14 @@ class QueryGraphRunner:
         state["groundedness_score"] = result.score
         state["groundedness_passed"] = result.passed
         return state
+
+    def _safe_search(self, state: QueryGraphState, **kwargs: Any) -> list[DigestSearchResult]:
+        try:
+            return self._search_client.search(**kwargs)
+        except Exception as exc:
+            warnings = state.setdefault("warnings", [])
+            warnings.append(f"Search skipped: {exc}")
+            return []
 
 
 def _doc_to_dict(result: DigestSearchResult) -> dict[str, Any]:

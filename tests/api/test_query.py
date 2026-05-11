@@ -27,6 +27,11 @@ class FakeSearchClient:
         ]
 
 
+class FailingSearchClient:
+    def search(self, **kwargs):
+        raise RuntimeError("SOLAR_API_KEY is missing")
+
+
 def test_query_api_runs_graph():
     app.dependency_overrides[get_query_runner] = lambda: QueryGraphRunner(search_client=FakeSearchClient())
     try:
@@ -43,3 +48,21 @@ def test_query_api_runs_graph():
     assert payload["success"] is True
     assert payload["data"]["intent"] == "general_query"
     assert payload["data"]["sources"][0]["document_id"] == "doc_001"
+
+
+def test_query_api_returns_empty_answer_when_search_fails():
+    app.dependency_overrides[get_query_runner] = lambda: QueryGraphRunner(search_client=FailingSearchClient())
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/query",
+            json={"question": "Summarize LangGraph workflows", "top_k": 3, "date_to": "2026-05-11"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["data"]["sources"] == []
+    assert payload["data"]["warnings"]
