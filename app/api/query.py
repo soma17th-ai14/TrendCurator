@@ -28,6 +28,7 @@ class QueryData(BaseModel):
     groundedness_passed: bool
     sources: list[dict[str, Any]]
     comparison_metadata: dict[str, Any] | None = None
+    warnings: list[str] = Field(default_factory=list)
 
 
 class QueryResponse(BaseModel):
@@ -59,5 +60,6 @@ def run_query(
             groundedness_passed=state.get("groundedness_passed", False),
             sources=state.get("sources", []),
             comparison_metadata=state.get("comparison_metadata"),
+            warnings=state.get("warnings", []),
         ),
     )

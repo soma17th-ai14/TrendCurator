@@ -87,6 +87,8 @@ with query_tab:
                 data = payload["data"]
                 st.metric("Groundedness", data["groundedness_score"])
                 st.write(data["answer"])
+                for warning in data.get("warnings", []):
+                    st.warning(warning)
                 if data.get("comparison_metadata"):
                     st.write("Comparison metadata")
                     st.json(data["comparison_metadata"])
