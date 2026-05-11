@@ -1,0 +1,29 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      CHROMA_DATA_PATH: /data/chroma
+      SOLAR_API_KEY: ${SOLAR_API_KEY:-}
+      SOLAR_BASE_URL: ${SOLAR_BASE_URL:-https://api.upstage.ai/v1}
+      SOLAR_MINI_MODEL: ${SOLAR_MINI_MODEL:-solar-mini}
+      SOLAR_DIGEST_MODEL: ${SOLAR_DIGEST_MODEL:-solar-pro3}
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma-data:/data/chroma
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      TRENDCURATOR_API_BASE_URL: http://api:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+
+volumes:
+  chroma-data:
