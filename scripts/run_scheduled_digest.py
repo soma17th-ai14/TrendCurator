@@ -3,7 +3,15 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Optional
 
+from app.agents.digest_generator import SolarProDigestGenerator
+from app.agents.retriever import Retriever
+from app.core.chroma_client import ChromaClient
+from app.core.embedding_client import EmbeddingClient
+from app.core.models import DailyDigestRetrievalRequest
 from app.core.scheduler_settings import create_scheduler_from_env
+from app.core.settings import get_settings, get_solar_settings
+from app.services.digest_generation_adapter import DigestGenerationAdapter
+from app.services.digest_retriever import DailyDigestRetriever
 from app.services.scheduler import SchedulerConfig, SchedulerService
 
 
@@ -12,10 +20,33 @@ EXIT_NOT_IMPLEMENTED = 2
 
 
 def run_daily_digest_pipeline(run_date: date, config: SchedulerConfig) -> Optional[str]:
-    """정기 Daily Digest 파이프라인을 실행합니다."""
-    raise NotImplementedError(
-        "Daily Digest 파이프라인이 구현되면 이 함수에서 실제 발행 서비스를 호출합니다."
+    """정기 Daily Digest 파이프라인을 실행합니다.
+
+    후보 문서가 없으면 None을 반환하고, 생성에 성공하면 digest_id를 반환합니다.
+    """
+    settings = get_settings()
+    solar_settings = get_solar_settings()
+
+    retriever = Retriever(EmbeddingClient(settings), ChromaClient(settings))
+    retrieval_result = DailyDigestRetriever(retriever).retrieve(
+        DailyDigestRetrievalRequest(
+            digest_date=run_date,
+            sources=list(config.sources),  # type: ignore[arg-type]
+        )
     )
+
+    if not retrieval_result.candidates:
+        print(f"[{run_date}] 후보 문서가 없어 Digest 생성을 건너뜁니다.")
+        return None
+
+    adapter = DigestGenerationAdapter(language="ko")
+    generation_result = SolarProDigestGenerator.from_settings(solar_settings).generate(
+        adapter.to_generation_request(retrieval_result)
+    )
+    return adapter.to_run_result(
+        retrieval_result=retrieval_result,
+        generation_result=generation_result,
+    ).digest_id
 
 
 def run_once(
