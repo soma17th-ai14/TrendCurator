@@ -24,8 +24,8 @@ def api_get(path: str) -> dict:
     return response.json()
 
 
-def api_post(path: str, payload: dict) -> dict:
-    response = requests.post(f"{API_BASE_URL}{path}", json=payload, timeout=60)
+def api_post(path: str, payload: dict, timeout: int = 60) -> dict:
+    response = requests.post(f"{API_BASE_URL}{path}", json=payload, timeout=timeout)
     response.raise_for_status()
     return response.json()
 
@@ -72,9 +72,10 @@ with collect_tab:
     collect_date = st.date_input("수집 날짜", value=date.today(), key="collect_date")
     if st.button("수집 실행", type="primary"):
         try:
-            payload = api_post(f"{API_PREFIX}/pipeline/collect", {
-                "date": collect_date.isoformat(),
-            })
+            with st.spinner("수집 중... 임베딩 포함 2~5분 소요될 수 있습니다."):
+                payload = api_post(f"{API_PREFIX}/pipeline/collect", {
+                    "date": collect_date.isoformat(),
+                }, timeout=600)
             if not payload.get("success"):
                 st.error(payload.get("error") or "수집 실패")
             else:
