@@ -143,11 +143,33 @@ with digest_tab:
                 st.metric("Groundedness", data["groundedness_score"])
                 st.write(data["digest"]["title"])
                 for item in data["digest"]["items"]:
-                    with st.expander(item["title"]):
+                    label = f"[{item.get('source', '')}] {item['title']}"
+                    with st.expander(label):
+                        meta_cols = st.columns(2)
+                        meta_cols[0].caption(f"출처: {item.get('source', '-')}")
+                        meta_cols[1].caption(f"발행일: {item.get('published_at') or '-'}")
+
+                        st.markdown("**요약**")
                         st.write(item["summary"])
-                        st.write("Key points")
-                        st.write(item["key_points"])
-                        st.link_button("Open source", item["url"])
+
+                        st.markdown("**핵심 포인트**")
+                        for pt in item.get("key_points", []):
+                            st.markdown(f"- {pt}")
+
+                        st.markdown("**기여**")
+                        st.write(item.get("contribution") or "-")
+
+                        st.markdown("**벤치마크**")
+                        st.write(item.get("benchmark") or "-")
+
+                        st.markdown("**비평**")
+                        st.write(item.get("critique") or "-")
+
+                        tags = item.get("tags", [])
+                        if tags:
+                            st.caption("태그: " + ", ".join(tags))
+
+                        st.link_button("원문 보기", item["url"])
         except Exception as exc:
             st.error(f"Digest request failed: {exc}")
 
