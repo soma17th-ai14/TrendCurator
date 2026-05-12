@@ -33,24 +33,23 @@ class Retriever:
     ) -> list[DigestSearchResult]:
         query_vector = self._embedding.embed_query(query)
         where = _build_where(date_from, date_to, sources, categories)
-        fetch_k = top_k * 3
+        # 날짜 필터는 Python 후처리로 적용하므로 여분을 확보
+        fetch_k = top_k * 5 if (date_from or date_to) else top_k * 3
         raw = self._chroma.search(query_vector, top_k=fetch_k, where=where)
         deduped = _deduplicate(raw, fetch_k)
-        return deduped[:top_k]
+        filtered = _filter_by_date(deduped, date_from, date_to)
+        return filtered[:top_k]
 
 
 def _build_where(
     date_from: date | None,
     date_to: date | None,
-    sources: list[str] | None,
+    sources: list[Source] | None,
     categories: list[str] | None = None,
 ) -> dict | None:
-    # ChromaDB $gte/$lte는 숫자만 지원 — published_at_int(YYYYMMDD 정수)로 비교
+    # 날짜는 published_at(ISO 문자열)을 Python에서 필터링 — ChromaDB는 문자열 $gte/$lte 미지원
+    # published_at_int 필드는 Chunker에 기록되지만, 기존 데이터 호환성을 위해 아직 WHERE에 미사용
     conditions = []
-    if date_from:
-        conditions.append({"published_at_int": {"$gte": int(date_from.strftime("%Y%m%d"))}})
-    if date_to:
-        conditions.append({"published_at_int": {"$lte": int(date_to.strftime("%Y%m%d"))}})
     if sources:
         conditions.append({"source": {"$in": list(sources)}})
     if categories:
@@ -61,6 +60,25 @@ def _build_where(
     if len(conditions) == 1:
         return conditions[0]
     return {"$and": conditions}
+
+
+def _filter_by_date(
+    results: list[DigestSearchResult],
+    date_from: date | None,
+    date_to: date | None,
+) -> list[DigestSearchResult]:
+    if date_from is None and date_to is None:
+        return results
+    filtered = []
+    for r in results:
+        if r.published_at is None:
+            continue
+        if date_from and r.published_at < date_from:
+            continue
+        if date_to and r.published_at > date_to:
+            continue
+        filtered.append(r)
+    return filtered
 
 
 

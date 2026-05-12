@@ -97,16 +97,14 @@ def test_build_where_none_when_no_filters():
 
 
 def test_build_where_date_from_only():
+    # 날짜는 Python 후처리 — ChromaDB where에는 포함되지 않음
     result = _build_where(date(2026, 5, 1), None, None)
-    assert result == {"published_at_int": {"$gte": 20260501}}
+    assert result is None
 
 
 def test_build_where_multiple_conditions():
     result = _build_where(date(2026, 5, 1), date(2026, 5, 10), ["huggingface"])
-    assert result is not None
-    assert "$and" in result
-    conditions = result["$and"]
-    assert len(conditions) == 3
+    assert result == {"source": {"$in": ["huggingface"]}}
 
 
 def test_build_where_categories_filter():
@@ -118,30 +116,22 @@ def test_build_where_all_filters():
     result = _build_where(date(2026, 5, 1), date(2026, 5, 10), ["huggingface"], ["agent"])
     assert result is not None
     assert "$and" in result
-    assert len(result["$and"]) == 4
+    assert len(result["$and"]) == 2  # source + category만 포함
 
 
 def test_search_passes_where_filter_to_chroma():
     retriever, _, chroma = make_retriever()
 
-    retriever.search(query="테스트", sources=["huggingface"], date_to=date(2026, 5, 12))
+    retriever.search(query="테스트", sources=["huggingface"])
 
     call_kwargs = chroma.search.call_args[1]
-    where = call_kwargs["where"]
-    assert "$and" in where
-    conditions = where["$and"]
-    assert {"published_at_int": {"$lte": 20260512}} in conditions
-    assert {"source": {"$in": ["huggingface"]}} in conditions
+    assert call_kwargs["where"] == {"source": {"$in": ["huggingface"]}}
 
 
 def test_search_passes_categories_filter_to_chroma():
     retriever, _, chroma = make_retriever()
 
-    retriever.search(query="테스트", categories=["agent"], date_to=date(2026, 5, 12))
+    retriever.search(query="테스트", categories=["agent"])
 
     call_kwargs = chroma.search.call_args[1]
-    where = call_kwargs["where"]
-    assert "$and" in where
-    conditions = where["$and"]
-    assert {"published_at_int": {"$lte": 20260512}} in conditions
-    assert {"category": {"$in": ["agent"]}} in conditions
+    assert call_kwargs["where"] == {"category": {"$in": ["agent"]}}
