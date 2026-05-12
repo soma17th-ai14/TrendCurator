@@ -37,6 +37,7 @@ class CollectData(BaseModel):
     ingested_count: int
     skipped_count: int
     collected_at: str
+    warnings: list[str] = []
 
 
 class CollectResponse(BaseModel):
@@ -53,17 +54,19 @@ def _build_ingestion_service(settings: Settings) -> IngestionService:
     )
 
 
-async def _fetch_all(target_date: date) -> list:
+async def _fetch_all(target_date: date) -> tuple[list, list[str]]:
     tasks = [collector.fetch(target_date) for collector in _COLLECTORS]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     documents = []
+    warnings = []
     for collector, result in zip(_COLLECTORS, results):
         if isinstance(result, Exception):
+            warnings.append(f"{collector.__class__.__name__} 수집 실패: {result}")
             continue
         for item in result:
             documents.append(collector.normalize(item))
-    return documents
+    return documents, warnings
 
 
 @router.post("/pipeline/collect", response_model=CollectResponse)
@@ -72,7 +75,14 @@ def collect(
     settings: Settings = Depends(get_settings),
 ) -> CollectResponse:
     try:
-        documents = asyncio.run(_fetch_all(request.date))
+        documents, fetch_warnings = asyncio.run(_fetch_all(request.date))
+
+        if not documents and fetch_warnings:
+            return CollectResponse(
+                success=False,
+                error="모든 소스 수집 실패: " + "; ".join(fetch_warnings),
+            )
+
         normalized = normalize_documents(documents)
 
         relevance_filter = SolarMiniRelevanceFilter()
@@ -95,5 +105,6 @@ def collect(
             ingested_count=ingested,
             skipped_count=skipped,
             collected_at=datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            warnings=fetch_warnings,
         ),
     )

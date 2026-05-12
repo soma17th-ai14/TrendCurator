@@ -98,6 +98,7 @@ POST /pipeline/collect
 ```
 
 HuggingFace Daily Papers와 HackerNews에서 최신 AI Agent 관련 콘텐츠를 수집합니다.
+수집·필터·임베딩·저장을 동기적으로 완료하고 최종 결과를 반환합니다.
 
 Request
 
@@ -110,9 +111,9 @@ Request
 내부 처리 흐름
 
 ```text
-Collector
+Collector (HuggingFace + HackerNews 병렬)
 -> Normalizer
--> Relevance Filter
+-> Relevance Filter (SolarMini)
 -> Chunker
 -> Embedder
 -> ChromaDB 저장
@@ -124,46 +125,19 @@ Response
 {
   "success": true,
   "data": {
-    "job_id": "collect_20260506_001",
-    "status": "running",
-    "sources": ["huggingface", "hackernews"]
-  },
-  "error": null
-}
-```
-
-### 3.2 수집 작업 상태 조회
-
-```http
-GET /pipeline/jobs/{job_id}
-```
-
-Response
-
-```json
-{
-  "success": true,
-  "data": {
-    "job_id": "collect_20260506_001",
-    "status": "completed",
     "collected_count": 86,
     "filtered_count": 31,
-    "embedded_count": 31,
-    "failed_count": 1,
-    "source_stats": {
-      "huggingface": {
-        "collected_count": 42,
-        "filtered_count": 18
-      },
-      "hackernews": {
-        "collected_count": 44,
-        "filtered_count": 13
-      }
-    }
+    "ingested_count": 30,
+    "skipped_count": 1,
+    "collected_at": "2026-05-06T09:00:00Z",
+    "warnings": []
   },
   "error": null
 }
 ```
+
+일부 소스만 실패한 경우 `success: true`로 반환하되 `warnings` 배열에 실패한 소스와 오류 메시지를 포함합니다.
+모든 소스가 실패한 경우 `success: false`로 반환합니다.
 
 ## 4. 문서 검색 API
 
@@ -598,7 +572,7 @@ Response
 
 | 담당 모듈                         | 관련 API                                                                         |
 | --------------------------------- | -------------------------------------------------------------------------------- |
-| 데이터 수집 및 정규화 파이프라인  | `POST /pipeline/collect`, `GET /pipeline/jobs/{job_id}`                          |
+| 데이터 수집 및 정규화 파이프라인  | `POST /pipeline/collect`                                                         |
 | VectorDB, 임베딩, 검색 인덱스     | `POST /documents/search`                                                         |
 | 정기 발행 Digest 생성 모듈        | `POST /digest/generate`, `GET /digest/{digest_id}`, `GET /digest`                |
 | Scheduler                         | `GET /scheduler`, `PUT /scheduler`, 내부 `SchedulerRunResult`                    |

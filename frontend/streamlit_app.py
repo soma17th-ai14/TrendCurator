@@ -86,6 +86,8 @@ with collect_tab:
                 col3.metric("저장", data["ingested_count"])
                 col4.metric("스킵", data["skipped_count"])
                 st.caption(f"완료: {data['collected_at']}")
+                for w in data.get("warnings", []):
+                    st.warning(w)
         except Exception as exc:
             st.error(f"수집 요청 실패: {exc}")
 
