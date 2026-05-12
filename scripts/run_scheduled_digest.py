@@ -24,8 +24,8 @@ def run_daily_digest_pipeline(run_date: date, config: SchedulerConfig) -> Option
 
     후보 문서가 없으면 None을 반환하고, 생성에 성공하면 digest_id를 반환합니다.
     """
-    settings = get_settings()
     solar_settings = get_solar_settings()
+    settings = get_settings()
 
     retriever = Retriever(EmbeddingClient(settings), ChromaClient(settings))
     retrieval_result = DailyDigestRetriever(retriever).retrieve(
