@@ -31,8 +31,6 @@ class Retriever:
         sources: list[Source] | None = None,
         categories: list[str] | None = None,
     ) -> list[DigestSearchResult]:
-        if date_from is None and date_to is None:
-            date_to = date.today()
         query_vector = self._embedding.embed_query(query)
         where = _build_where(date_from, date_to, sources, categories)
         fetch_k = top_k * 3
