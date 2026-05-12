@@ -79,9 +79,7 @@ class QueryGraphRunner:
         self._intent_router = intent_router
         self._query_rewriter = query_rewriter
         self._date_range_parser = date_range_parser
-        self._period_retriever = period_retriever or PeriodRetriever(
-            search_client=_PeriodSearchAdapter(search_client)
-        )
+        self._period_retriever = period_retriever  # None이면 search_client 직접 호출 경로 사용
         self._groundedness = groundedness_checker or GroundednessChecker()
         self._graph = self._build_graph()
 
@@ -164,29 +162,51 @@ class QueryGraphRunner:
         base_date = state.get("base_date") or date.today()
         top_k = state.get("top_k", 10)
         ranges = self._parse_date_ranges(state, base_date)
-        retrieval = self._retrieve_period_contexts(
-            state,
-            period_a=ranges["period_a"],
-            period_b=ranges["period_b"],
-            focus_keywords=ranges["focus_keywords"],
-            top_k=top_k,
-        )
+        period_a = ranges["period_a"]
+        period_b = ranges["period_b"]
+        focus_keywords = ranges["focus_keywords"]
 
-        state["retrieved_docs"] = [
-            _period_doc_to_dict(doc, "period_a")
-            for doc in retrieval.context_a.documents
-        ] + [
-            _period_doc_to_dict(doc, "period_b")
-            for doc in retrieval.context_b.documents
-        ]
+        if self._period_retriever is not None:
+            # 명시적으로 주입된 PeriodRetriever를 사용 (주로 테스트용)
+            retrieval = self._retrieve_period_contexts(
+                state,
+                period_a=period_a,
+                period_b=period_b,
+                focus_keywords=focus_keywords,
+                top_k=top_k,
+            )
+            retrieved_docs = [
+                _period_doc_to_dict(doc, "period_a")
+                for doc in retrieval.context_a.documents
+            ] + [
+                _period_doc_to_dict(doc, "period_b")
+                for doc in retrieval.context_b.documents
+            ]
+        else:
+            # 기본 경로: Retriever(PR #22)를 직접 호출해 DigestSearchResult 전체 메타데이터 보존
+            query = "AI Agent Trend Comparison " + " ".join(focus_keywords)
+            results_a = self._safe_search(
+                state, query=query, top_k=top_k,
+                date_from=period_a.start, date_to=period_a.end,
+            )
+            results_b = self._safe_search(
+                state, query=query, top_k=top_k,
+                date_from=period_b.start, date_to=period_b.end,
+            )
+            retrieved_docs = (
+                [{**_doc_to_dict(r), "period": "period_a"} for r in results_a]
+                + [{**_doc_to_dict(r), "period": "period_b"} for r in results_b]
+            )
+
+        state["retrieved_docs"] = retrieved_docs
         state["comparison_metadata"] = _comparison_metadata(
-            state["retrieved_docs"],
-            ranges["period_a"].start,
-            ranges["period_a"].end,
-            ranges["period_b"].start,
-            ranges["period_b"].end,
+            retrieved_docs,
+            period_a.start,
+            period_a.end,
+            period_b.start,
+            period_b.end,
         )
-        state["sources"] = [_source_from_doc(doc) for doc in state["retrieved_docs"]]
+        state["sources"] = [_source_from_doc(doc) for doc in retrieved_docs]
         return state
 
     def _generate_answer(self, state: QueryGraphState) -> QueryGraphState:

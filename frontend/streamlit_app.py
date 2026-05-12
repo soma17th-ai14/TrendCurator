@@ -40,8 +40,9 @@ with st.sidebar:
             st.error(f"Backend unavailable: {exc}")
 
 
-dashboard_tab, query_tab, digest_tab, groundedness_tab = st.tabs([
+dashboard_tab, collect_tab, query_tab, digest_tab, groundedness_tab = st.tabs([
     "Dashboard",
+    "Collect",
     "Query",
     "Digest",
     "Groundedness",
@@ -64,6 +65,28 @@ with dashboard_tab:
             st.json(data)
     except Exception as exc:
         st.error(f"Dashboard request failed: {exc}")
+
+
+with collect_tab:
+    st.subheader("데이터 수집 및 저장")
+    collect_date = st.date_input("수집 날짜", value=date.today(), key="collect_date")
+    if st.button("수집 실행", type="primary"):
+        try:
+            payload = api_post(f"{API_PREFIX}/pipeline/collect", {
+                "date": collect_date.isoformat(),
+            })
+            if not payload.get("success"):
+                st.error(payload.get("error") or "수집 실패")
+            else:
+                data = payload["data"]
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric("수집", data["collected_count"])
+                col2.metric("관련 문서", data["filtered_count"])
+                col3.metric("저장", data["ingested_count"])
+                col4.metric("스킵", data["skipped_count"])
+                st.caption(f"완료: {data['collected_at']}")
+        except Exception as exc:
+            st.error(f"수집 요청 실패: {exc}")
 
 
 with query_tab:
