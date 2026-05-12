@@ -57,12 +57,14 @@ class Chunker:
 
     def _base_metadata(self, input: ChunkingInput) -> dict:
         doc = input.document
+        published_at_int = int(doc.published_date.replace("-", "")) if doc.published_date else 0
         return {
             "document_id": doc.doc_id,
             "source": doc.source,
             "title": doc.title,
             "url": doc.url,
             "published_at": doc.published_date,
+            "published_at_int": published_at_int,
             "category": doc.category_hint,
             "relevance_score": input.relevance_score,
             "matched_keywords": input.matched_keywords,

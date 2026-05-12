@@ -98,7 +98,7 @@ def test_build_where_none_when_no_filters():
 
 def test_build_where_date_from_only():
     result = _build_where(date(2026, 5, 1), None, None)
-    assert result == {"published_at": {"$gte": "2026-05-01"}}
+    assert result == {"published_at_int": {"$gte": 20260501}}
 
 
 def test_build_where_multiple_conditions():
@@ -124,16 +124,24 @@ def test_build_where_all_filters():
 def test_search_passes_where_filter_to_chroma():
     retriever, _, chroma = make_retriever()
 
-    retriever.search(query="테스트", sources=["huggingface"])
+    retriever.search(query="테스트", sources=["huggingface"], date_to=date(2026, 5, 12))
 
     call_kwargs = chroma.search.call_args[1]
-    assert call_kwargs["where"] == {"source": {"$in": ["huggingface"]}}
+    where = call_kwargs["where"]
+    assert "$and" in where
+    conditions = where["$and"]
+    assert {"published_at_int": {"$lte": 20260512}} in conditions
+    assert {"source": {"$in": ["huggingface"]}} in conditions
 
 
 def test_search_passes_categories_filter_to_chroma():
     retriever, _, chroma = make_retriever()
 
-    retriever.search(query="테스트", categories=["agent"])
+    retriever.search(query="테스트", categories=["agent"], date_to=date(2026, 5, 12))
 
     call_kwargs = chroma.search.call_args[1]
-    assert call_kwargs["where"] == {"category": {"$in": ["agent"]}}
+    where = call_kwargs["where"]
+    assert "$and" in where
+    conditions = where["$and"]
+    assert {"published_at_int": {"$lte": 20260512}} in conditions
+    assert {"category": {"$in": ["agent"]}} in conditions

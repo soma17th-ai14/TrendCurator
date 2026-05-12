@@ -31,14 +31,14 @@ class Retriever:
         sources: list[Source] | None = None,
         categories: list[str] | None = None,
     ) -> list[DigestSearchResult]:
+        if date_from is None and date_to is None:
+            date_to = date.today()
         query_vector = self._embedding.embed_query(query)
         where = _build_where(date_from, date_to, sources, categories)
-        # 날짜 필터가 있으면 Python에서 걸러낼 여분을 확보하기 위해 더 많이 조회
-        fetch_k = top_k * 5 if (date_from or date_to) else top_k * 3
+        fetch_k = top_k * 3
         raw = self._chroma.search(query_vector, top_k=fetch_k, where=where)
         deduped = _deduplicate(raw, fetch_k)
-        filtered = _filter_by_date(deduped, date_from, date_to)
-        return filtered[:top_k]
+        return deduped[:top_k]
 
 
 def _build_where(
@@ -47,8 +47,12 @@ def _build_where(
     sources: list[str] | None,
     categories: list[str] | None = None,
 ) -> dict | None:
-    # ChromaDB의 $gte/$lte는 숫자 타입만 지원 — 날짜는 Python 쪽에서 필터링
+    # ChromaDB $gte/$lte는 숫자만 지원 — published_at_int(YYYYMMDD 정수)로 비교
     conditions = []
+    if date_from:
+        conditions.append({"published_at_int": {"$gte": int(date_from.strftime("%Y%m%d"))}})
+    if date_to:
+        conditions.append({"published_at_int": {"$lte": int(date_to.strftime("%Y%m%d"))}})
     if sources:
         conditions.append({"source": {"$in": list(sources)}})
     if categories:
@@ -60,24 +64,6 @@ def _build_where(
         return conditions[0]
     return {"$and": conditions}
 
-
-def _filter_by_date(
-    results: list[DigestSearchResult],
-    date_from: date | None,
-    date_to: date | None,
-) -> list[DigestSearchResult]:
-    if date_from is None and date_to is None:
-        return results
-    filtered = []
-    for r in results:
-        if r.published_at is None:
-            continue
-        if date_from and r.published_at < date_from:
-            continue
-        if date_to and r.published_at > date_to:
-            continue
-        filtered.append(r)
-    return filtered
 
 
 def _deduplicate(raw_results, top_k: int) -> list[DigestSearchResult]:
