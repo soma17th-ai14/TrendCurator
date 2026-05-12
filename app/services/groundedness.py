@@ -79,12 +79,20 @@ class GroundednessChecker:
         if not answer_terms:
             return 1.0
 
-        context_terms = set()
+        context_terms: set[str] = set()
         for context in contexts:
             context_terms.update(_keywords(context))
 
         if not context_terms:
             return 0.0
+
+        # 한국어 답변 + 영어 소스 교차언어 케이스: ASCII 기술 용어만 비교
+        answer_ascii = {t for t in answer_terms if t.isascii()}
+        korean_ratio = 1.0 - (len(answer_ascii) / len(answer_terms))
+        if korean_ratio > 0.4 and answer_ascii:
+            context_ascii = {t for t in context_terms if t.isascii()}
+            supported = answer_ascii & context_ascii
+            return round(len(supported) / len(answer_ascii), 4)
 
         supported = answer_terms & context_terms
         return round(len(supported) / len(answer_terms), 4)

@@ -106,7 +106,12 @@ def _build_query_agents() -> dict[str, object]:
             prompt_template=(
                 "Classify the user question for TrendCurator.\n"
                 "Return JSON with intent, confidence, reasoning.\n"
-                "intent must be TREND_COMPARISON or GENERAL_QA.\n"
+                "intent must be exactly TREND_COMPARISON or GENERAL_QA.\n"
+                "TREND_COMPARISON: the user EXPLICITLY asks to compare two different time periods "
+                "(e.g. 'compare last week vs this week', 'how did things change', '지난주 대비 이번주').\n"
+                "GENERAL_QA: the user asks for a summary, explanation, or current status of a topic "
+                "(e.g. 'summarize', 'what is', 'recent trends in X', 'latest papers on Y').\n"
+                "When in doubt, choose GENERAL_QA.\n"
                 "Question: {query}\nBase date: {base_date}"
             ),
         ),
@@ -115,15 +120,21 @@ def _build_query_agents() -> dict[str, object]:
             prompt_template=(
                 "Rewrite the user question into 1-2 concise vector-search queries.\n"
                 "Return JSON with optimized_queries and search_filter.sources.\n"
+                "sources must be a list containing 'huggingface', 'hackernews', or both.\n"
                 "Question: {query}"
             ),
         ),
         "date_range_parser": DateRangeParser(
             llm_client=llm_client,
             prompt_template=(
-                "Parse trend comparison periods for the question.\n"
-                "Return JSON with period_a, period_b, focus_keywords.\n"
-                "Dates must be YYYY-MM-DD.\n"
+                "Extract two comparison time periods from the user question.\n"
+                "Return JSON in EXACTLY this format (no other keys):\n"
+                '{{"period_a": {{"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}}, '
+                '"period_b": {{"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}}, '
+                '"focus_keywords": ["keyword1", "keyword2"]}}\n'
+                "period_a = the older/previous period, period_b = the more recent period.\n"
+                "If no specific period is mentioned, use: "
+                "period_b = 7 days ending on base_date, period_a = the 7 days before that.\n"
                 "Question: {query}\nBase date: {base_date}"
             ),
         ),

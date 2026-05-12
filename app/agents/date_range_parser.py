@@ -50,6 +50,12 @@ class DateRangeParser:
         period_a_data = parsed.get("period_a", {})
         period_b_data = parsed.get("period_b", {})
 
+        # LLM이 {"start": ..., "end": ...} 대신 날짜 문자열을 직접 반환하는 경우 보정
+        if isinstance(period_a_data, str):
+            period_a_data = {"start": period_a_data, "end": period_a_data}
+        if isinstance(period_b_data, str):
+            period_b_data = {"start": period_b_data, "end": period_b_data}
+
         period_a = DateRange(
             start=date.fromisoformat(period_a_data.get("start")),
             end=date.fromisoformat(period_a_data.get("end")),
