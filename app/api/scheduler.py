@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from app.api.responses import ErrorResponse, error_response
 from app.core.models import Source
@@ -15,6 +15,7 @@ from app.services.scheduler import SchedulerConfig, SchedulerConfigError, Schedu
 router = APIRouter()
 
 _SCHEDULER: SchedulerService | None = None
+_SCHEDULER_ERROR: str | None = None
 
 
 class SchedulerData(BaseModel):
@@ -39,20 +40,32 @@ class SchedulerUpdateRequest(BaseModel):
     sources: list[Source] = Field(default_factory=lambda: ["huggingface", "hackernews"])
 
 
-def get_scheduler_service() -> SchedulerService:
-    global _SCHEDULER
-    if _SCHEDULER is None:
-        _SCHEDULER = create_scheduler_from_env()
+def get_scheduler_service() -> SchedulerService | None:
+    global _SCHEDULER, _SCHEDULER_ERROR
+    if _SCHEDULER is None and _SCHEDULER_ERROR is None:
+        try:
+            _SCHEDULER = create_scheduler_from_env()
+        except SchedulerConfigError as exc:
+            _SCHEDULER_ERROR = str(exc)
     return _SCHEDULER
+
+
+def _init_error_response() -> SchedulerResponse:
+    return SchedulerResponse(
+        success=False,
+        error=error_response("SCHEDULER_ERROR", _SCHEDULER_ERROR or "스케줄러를 초기화할 수 없습니다."),
+    )
 
 
 @router.get("/scheduler", response_model=SchedulerResponse)
 def get_scheduler(
-    scheduler: SchedulerService = Depends(get_scheduler_service),
+    scheduler: SchedulerService | None = Depends(get_scheduler_service),
 ) -> SchedulerResponse:
+    if scheduler is None:
+        return _init_error_response()
     try:
         data = _scheduler_data(scheduler)
-    except SchedulerConfigError as exc:
+    except (SchedulerConfigError, ValidationError) as exc:
         return SchedulerResponse(
             success=False,
             error=error_response("SCHEDULER_ERROR", str(exc)),
@@ -64,8 +77,10 @@ def get_scheduler(
 @router.put("/scheduler", response_model=SchedulerResponse)
 def update_scheduler(
     request: SchedulerUpdateRequest,
-    scheduler: SchedulerService = Depends(get_scheduler_service),
+    scheduler: SchedulerService | None = Depends(get_scheduler_service),
 ) -> SchedulerResponse:
+    if scheduler is None:
+        return _init_error_response()
     try:
         config = SchedulerConfig(
             enabled=request.enabled,
@@ -82,7 +97,7 @@ def update_scheduler(
 
     try:
         data = _scheduler_data(scheduler)
-    except SchedulerConfigError as exc:
+    except (SchedulerConfigError, ValidationError) as exc:
         return SchedulerResponse(
             success=False,
             error=error_response("SCHEDULER_ERROR", str(exc)),
