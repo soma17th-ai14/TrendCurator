@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.agents.retriever import Retriever
+from app.api.responses import ErrorResponse
 from app.core.chroma_client import ChromaClient
 from app.core.embedding_client import EmbeddingClient
 from app.core.models import Source
@@ -33,6 +34,8 @@ class SearchResultItem(BaseModel):
     url: str
     published_at: date | None
     similarity_score: float
+    relevance_score: float
+    matched_keywords: list[str] = Field(default_factory=list)
     summary_preview: str
 
 
@@ -44,7 +47,7 @@ class DocumentSearchData(BaseModel):
 class DocumentSearchResponse(BaseModel):
     success: bool
     data: DocumentSearchData | None = None
-    error: str | None = None
+    error: ErrorResponse | None = None
 
 
 def get_retriever(settings: Settings = Depends(get_settings)) -> Retriever:
@@ -75,6 +78,8 @@ def search_documents(
             url=r.url,
             published_at=r.published_at,
             similarity_score=r.similarity_score,
+            relevance_score=r.relevance_score,
+            matched_keywords=r.matched_keywords,
             summary_preview=r.summary_preview,
         )
         for r in results

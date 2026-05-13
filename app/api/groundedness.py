@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.core.chroma_client import ChromaClient
 from app.core.settings import Settings, get_settings
+from app.api.responses import ErrorResponse, error_response
 from app.services.groundedness import (
     GroundednessChecker,
     GroundednessCheckRequest as ServiceGroundednessRequest,
@@ -35,7 +36,7 @@ class GroundednessCheckData(BaseModel):
 class GroundednessCheckResponse(BaseModel):
     success: bool
     data: GroundednessCheckData | None = None
-    error: str | None = None
+    error: ErrorResponse | None = None
 
 
 def get_groundedness_checker() -> GroundednessChecker:
@@ -57,7 +58,10 @@ def check_groundedness(
         try:
             contexts = chroma.get_texts_by_document_ids(request.source_document_ids)
         except Exception as exc:
-            return GroundednessCheckResponse(success=False, error=str(exc))
+            return GroundednessCheckResponse(
+                success=False,
+                error=error_response("GROUNDING_CONTEXT_LOOKUP_FAILED", str(exc)),
+            )
 
     result = checker.check(ServiceGroundednessRequest(
         answer=request.answer,

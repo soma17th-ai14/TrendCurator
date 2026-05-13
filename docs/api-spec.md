@@ -175,6 +175,8 @@ Response
         "url": "https://huggingface.co/papers/xxxx.xxxxx",
         "published_at": "2026-05-05",
         "similarity_score": 0.87,
+        "relevance_score": 0.92,
+        "matched_keywords": ["langgraph", "multi-agent"],
         "summary_preview": "멀티 에이전트 오케스트레이션 관련 최신 연구 요약"
       }
     ]
@@ -370,7 +372,10 @@ Request
 ```json
 {
   "answer": "생성된 응답 내용",
-  "source_document_ids": ["doc_001", "doc_002"]
+  "source_document_ids": ["doc_001", "doc_002"],
+  "contexts": ["검색 또는 별도 입력으로 제공한 근거 문맥"],
+  "question": "사용자 질문",
+  "threshold": 0.8
 }
 ```
 
