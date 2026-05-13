@@ -40,11 +40,35 @@ def _spawn_startup_digest_thread(config) -> threading.Thread:
     return thread
 
 
+def _is_truthy_env(name: str) -> bool:
+    return os.getenv(name, "").lower() in ("1", "true", "yes")
+
+
+def _maybe_reset_chroma_on_startup() -> None:
+    """``CHROMA_RESET_ON_STARTUP`` 가 켜져있으면 벡터DB 컬렉션을 비운다.
+
+    데모/시연 환경에서 부팅 시 깨끗한 상태로 시작하기 위한 옵션이며, 기본값은 비활성이다.
+    """
+    if not _is_truthy_env("CHROMA_RESET_ON_STARTUP"):
+        return
+    try:
+        from app.core.chroma_client import ChromaClient
+        from app.core.settings import get_settings
+
+        ChromaClient(get_settings()).reset_collection()
+        logger.info("부팅 시 ChromaDB 컬렉션을 비웠습니다 (CHROMA_RESET_ON_STARTUP=1).")
+    except Exception as exc:
+        logger.warning("부팅 시 ChromaDB 청소 실패: %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 데모 시연 시 부팅 시 벡터DB를 비우는 옵션. SCHEDULER_AUTOSTART 와 독립적으로 동작한다.
+    _maybe_reset_chroma_on_startup()
+
     # SCHEDULER_AUTOSTART=1 환경변수가 있을 때만 시작 시 루프를 자동 시작합니다.
     # 테스트 환경에서는 이 변수를 설정하지 않으면 루프가 시작되지 않습니다.
-    if os.getenv("SCHEDULER_AUTOSTART", "").lower() in ("1", "true", "yes"):
+    if _is_truthy_env("SCHEDULER_AUTOSTART"):
         from app.api.scheduler import ensure_loop_running, get_scheduler_service
         scheduler = get_scheduler_service()
         if scheduler is not None:

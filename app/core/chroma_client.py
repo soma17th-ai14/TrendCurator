@@ -48,8 +48,13 @@ class ChromaClient:
         vector: list[float],
         metadata: dict,
     ) -> None:
-        """청크 하나를 저장한다."""
-        self._collection.add(
+        """청크 하나를 저장한다.
+
+        동일 ``chunk_id`` 가 이미 있으면 덮어쓴다(upsert). ``chunk_id`` 는
+        ``f"{doc_id}_chunk_{i}"`` 로 결정적으로 생성되므로, 동일 문서가 재수집되어도
+        중복 row 가 쌓이지 않는다.
+        """
+        self._collection.upsert(
             ids=[chunk_id],
             documents=[text],
             embeddings=[vector],
@@ -63,12 +68,28 @@ class ChromaClient:
         vectors: list[list[float]],
         metadatas: list[dict],
     ) -> None:
-        """청크 배치를 저장한다."""
-        self._collection.add(
+        """청크 배치를 저장한다. ``add`` 와 동일하게 ``chunk_id`` 기준 upsert 처리."""
+        self._collection.upsert(
             ids=chunk_ids,
             documents=texts,
             embeddings=vectors,
             metadatas=metadatas,
+        )
+
+    def reset_collection(self) -> None:
+        """저장된 모든 청크를 비운다.
+
+        데모/시연 환경에서 부팅 시 깨끗한 상태로 시작하기 위해 사용한다. 컬렉션 자체를
+        삭제 후 동일 이름으로 다시 만들고, 인스턴스 내부 참조도 새 컬렉션으로 교체한다.
+        """
+        name = self._collection.name
+        try:
+            self._client.delete_collection(name)
+        except Exception:  # pragma: no cover - 컬렉션이 없을 때도 정상 흐름
+            pass
+        self._collection = self._client.get_or_create_collection(
+            name=name,
+            metadata={"hnsw:space": "cosine"},
         )
 
     def search(

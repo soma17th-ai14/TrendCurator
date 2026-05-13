@@ -114,6 +114,67 @@ def test_delete_removes_chunks(client):
     assert client.count() == 0
 
 
+def test_add_is_idempotent_for_same_chunk_id(client):
+    """동일 chunk_id 로 두 번 add 해도 row 가 중복되지 않고 마지막 상태로 갱신된다."""
+    client.add(
+        chunk_id="chunk_001",
+        text="initial text",
+        vector=FAKE_VECTOR,
+        metadata={"document_id": "doc_001", "source": "huggingface"},
+    )
+    client.add(
+        chunk_id="chunk_001",
+        text="updated text",
+        vector=ANOTHER_VECTOR,
+        metadata={"document_id": "doc_001", "source": "huggingface"},
+    )
+
+    assert client.count() == 1
+    results = client.search(query_vector=ANOTHER_VECTOR, top_k=1)
+    assert results[0].text == "updated text"
+
+
+def test_add_batch_is_idempotent_for_same_chunk_id(client):
+    """add_batch 도 동일 chunk_id 재호출 시 row 가 늘지 않는다."""
+    chunk_ids = ["chunk_001", "chunk_002"]
+    vectors = [FAKE_VECTOR, FAKE_VECTOR]
+    metadatas = [
+        {"document_id": "doc_001", "source": "huggingface"},
+        {"document_id": "doc_002", "source": "hackernews"},
+    ]
+
+    client.add_batch(chunk_ids=chunk_ids, texts=["a", "b"], vectors=vectors, metadatas=metadatas)
+    client.add_batch(chunk_ids=chunk_ids, texts=["a2", "b2"], vectors=vectors, metadatas=metadatas)
+
+    assert client.count() == 2
+
+
+def test_reset_collection_clears_all_chunks(client):
+    """reset_collection 호출 후 컬렉션이 비워지고 재사용 가능해야 한다."""
+    client.add_batch(
+        chunk_ids=["chunk_001", "chunk_002"],
+        texts=["a", "b"],
+        vectors=[FAKE_VECTOR, FAKE_VECTOR],
+        metadatas=[
+            {"document_id": "doc_001", "source": "huggingface"},
+            {"document_id": "doc_002", "source": "hackernews"},
+        ],
+    )
+    assert client.count() == 2
+
+    client.reset_collection()
+    assert client.count() == 0
+
+    # 청소 후에도 새 데이터 저장이 정상 동작한다.
+    client.add(
+        chunk_id="chunk_after_reset",
+        text="post reset",
+        vector=FAKE_VECTOR,
+        metadata={"document_id": "doc_003", "source": "huggingface"},
+    )
+    assert client.count() == 1
+
+
 def test_get_texts_by_document_ids(client):
     client.add_batch(
         chunk_ids=["chunk_001", "chunk_002", "chunk_003"],
