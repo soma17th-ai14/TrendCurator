@@ -19,41 +19,43 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# CSS: 사이드바 숨김, 상단 여백 축소, 로딩 오버레이 스피너 정의
+# CSS: 헤더·사이드바 숨김, 여백 조정, st.spinner 전체화면 오버레이 스타일링
 st.markdown(
     """
     <style>
-    [data-testid="collapsedControl"] { display: none; }
+    header[data-testid="stHeader"] { display: none !important; }
+    [data-testid="collapsedControl"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
-    .block-container { padding-top: 1.2rem; padding-bottom: 0; }
-    .tc-overlay {
-        position: fixed; top: 0; left: 0;
-        width: 100vw; height: 100vh;
-        background: rgba(14, 17, 23, 0.55);
-        z-index: 999999;
-        display: flex; align-items: center; justify-content: center;
+    .block-container { padding-top: 1.5rem; padding-bottom: 0; }
+
+    /* st.spinner를 전체화면 오버레이로 표시 */
+    [data-testid="stSpinner"] {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        background: rgba(14, 17, 23, 0.55) !important;
+        z-index: 999999 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
     }
-    .tc-loading-box {
-        background: #fff;
-        padding: 2.5rem 4rem;
-        border-radius: 16px;
-        text-align: center;
-        box-shadow: 0 8px 40px rgba(0,0,0,0.25);
+    [data-testid="stSpinner"] > div {
+        background: #fff !important;
+        padding: 2.5rem 4rem !important;
+        border-radius: 16px !important;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.25) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 1rem !important;
     }
-    .tc-spinner {
-        width: 48px; height: 48px;
-        border: 5px solid #e8e8e8;
-        border-top-color: #FF4B4B;
-        border-radius: 50%;
-        animation: tc-spin 0.85s linear infinite;
-        margin: 0 auto 1.2rem;
+    [data-testid="stSpinner"] p {
+        font-size: 1rem !important;
+        color: #333 !important;
+        margin: 0 !important;
     }
-    .tc-loading-msg {
-        color: #333;
-        font-size: 1rem;
-        margin: 0;
-    }
-    @keyframes tc-spin { to { transform: rotate(360deg); } }
     </style>
     """,
     unsafe_allow_html=True,
@@ -82,28 +84,6 @@ def error_msg(payload: dict[str, Any], fallback: str = "오류가 발생했습�
         return f"{code}: {msg}" if code else msg
     return str(err) if err else fallback
 
-
-from contextlib import contextmanager
-
-@contextmanager
-def loading_overlay(message: str = "처리 중..."):
-    """전체화면 오버레이 로딩 인디케이터. with 블록 안의 작업이 끝나면 자동으로 사라집니다."""
-    placeholder = st.empty()
-    placeholder.markdown(
-        f"""
-        <div class="tc-overlay">
-            <div class="tc-loading-box">
-                <div class="tc-spinner"></div>
-                <p class="tc-loading-msg">{message}</p>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    try:
-        yield
-    finally:
-        placeholder.empty()
 
 
 # ─── Session state 초기화 ─────────────────────────────────────────────────────
@@ -208,7 +188,7 @@ if st.session_state.show_settings:
                 st.markdown("**데이터 수집**")
                 collect_date = st.date_input("수집 날짜", value=date.today(), key="admin_collect_date")
                 if st.button("수집 실행", use_container_width=True):
-                    with loading_overlay("데이터 수집 중입니다...  (2~5분 소요)"):
+                    with st.spinner("데이터 수집 중입니다... (2~5분 소요)"):
                         try:
                             result = api_post(
                                 f"{API_PREFIX}/pipeline/collect",
@@ -295,7 +275,7 @@ with digest_col:
     if not has_today:
         st.info("오늘의 Digest가 아직 생성되지 않았습니다.")
         if st.button("오늘의 Digest 생성", type="primary"):
-            with loading_overlay("Digest 생성 중입니다...  (최대 2분 소요)"):
+            with st.spinner("Digest 생성 중입니다... (최대 2분 소요)"):
                 try:
                     result = api_post(
                         f"{API_PREFIX}/digest/generate",
@@ -407,7 +387,7 @@ with chat_col:
     if question := st.chat_input("질문을 입력하세요..."):
         st.session_state.chat_messages.append({"role": "user", "content": question})
 
-        with loading_overlay("답변을 생성하고 있습니다..."):
+        with st.spinner("답변을 생성하고 있습니다..."):
             try:
                 result = api_post(
                     f"{API_PREFIX}/query",
