@@ -19,7 +19,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# CSS: 헤더·사이드바 숨김, 여백 조정, st.spinner 전체화면 오버레이 스타일링
+# CSS: 헤더·사이드바 숨김, 여백 조정
 st.markdown(
     """
     <style>
@@ -27,35 +27,6 @@ st.markdown(
     [data-testid="collapsedControl"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
     .block-container { padding-top: 1.5rem; padding-bottom: 0; }
-
-    /* st.spinner를 전체화면 오버레이로 표시 */
-    [data-testid="stSpinner"] {
-        position: fixed !important;
-        inset: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        background: rgba(14, 17, 23, 0.55) !important;
-        z-index: 999999 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        margin: 0 !important;
-    }
-    [data-testid="stSpinner"] > div {
-        background: #fff !important;
-        padding: 2.5rem 4rem !important;
-        border-radius: 16px !important;
-        box-shadow: 0 8px 40px rgba(0,0,0,0.25) !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        gap: 1rem !important;
-    }
-    [data-testid="stSpinner"] p {
-        font-size: 1rem !important;
-        color: #333 !important;
-        margin: 0 !important;
-    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -352,78 +323,87 @@ with chat_col:
     st.markdown("### 💬 질의")
     st.caption("트렌드 질문이나 기간 비교를 자유롭게 물어보세요.")
 
-    # 메시지 표시 영역
-    chat_area = st.container(height=560)
-    with chat_area:
-        if not st.session_state.chat_messages:
-            st.markdown(
-                "<div style='color:#888; font-size:0.85rem; margin-top:1rem;'>"
-                "예시 질문:<br>"
-                "• 최근 LangGraph 관련 주요 연구는?<br>"
-                "• 지난주 대비 이번 주 멀티에이전트 트렌드 변화는?<br>"
-                "• RAG와 에이전트 결합 관련 최신 동향은?"
-                "</div>",
-                unsafe_allow_html=True,
-            )
-        for msg in st.session_state.chat_messages:
-            with st.chat_message(msg["role"]):
-                st.write(msg["content"])
-                if msg["role"] == "assistant":
-                    if msg.get("groundedness") is not None:
-                        st.caption(f"Groundedness: {msg['groundedness']:.2f}")
-                    sources = msg.get("sources") or []
-                    if sources:
-                        with st.expander(f"근거 문서 {len(sources)}건"):
-                            for src in sources:
-                                title = src.get("title") or src.get("document_id") or "문서"
-                                period = src.get("period", "")
-                                period_label = f" ({period})" if period else ""
-                                if src.get("url"):
-                                    st.markdown(f"- [{title}{period_label}]({src['url']})")
-                                else:
-                                    st.markdown(f"- {title}{period_label}")
+    # 기존 메시지 표시
+    if not st.session_state.chat_messages:
+        st.markdown(
+            "<div style='color:#888; font-size:0.85rem; margin-top:1rem;'>"
+            "예시 질문:<br>"
+            "• 최근 LangGraph 관련 주요 연구는?<br>"
+            "• 지난주 대비 이번 주 멀티에이전트 트렌드 변화는?<br>"
+            "• RAG와 에이전트 결합 관련 최신 동향은?"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+    for msg in st.session_state.chat_messages:
+        with st.chat_message(msg["role"]):
+            st.write(msg["content"])
+            if msg["role"] == "assistant":
+                if msg.get("groundedness") is not None:
+                    st.caption(f"Groundedness: {msg['groundedness']:.2f}")
+                sources = msg.get("sources") or []
+                if sources:
+                    with st.expander(f"근거 문서 {len(sources)}건"):
+                        for src in sources:
+                            title = src.get("title") or src.get("document_id") or "문서"
+                            period = src.get("period", "")
+                            period_label = f" ({period})" if period else ""
+                            if src.get("url"):
+                                st.markdown(f"- [{title}{period_label}]({src['url']})")
+                            else:
+                                st.markdown(f"- {title}{period_label}")
 
-    # 채팅 입력
+    # 새 질문 인라인 처리 (st.rerun() 없이)
     if question := st.chat_input("질문을 입력하세요..."):
         st.session_state.chat_messages.append({"role": "user", "content": question})
+        with st.chat_message("user"):
+            st.write(question)
 
-        with st.spinner("답변을 생성하고 있습니다..."):
-            try:
-                result = api_post(
-                    f"{API_PREFIX}/query",
-                    {"question": question, "top_k": 5, "date_to": str(date.today())},
-                    timeout=90,
-                )
-                if result.get("success"):
-                    data = result["data"]
-                    intent = data.get("intent", "")
-                    answer = data.get("answer", "")
-                    prefix = "📊 **트렌드 비교 결과**\n\n" if intent == "trend_comparison" else ""
-                    st.session_state.chat_messages.append({
-                        "role": "assistant",
-                        "content": prefix + answer,
-                        "sources": data.get("sources", []),
-                        "groundedness": data.get("groundedness_score"),
-                    })
-                    for warning in data.get("warnings", []):
-                        st.session_state.chat_messages.append({
-                            "role": "assistant",
-                            "content": f"⚠️ {warning}",
-                            "sources": [],
-                            "groundedness": None,
-                        })
-                else:
-                    st.session_state.chat_messages.append({
-                        "role": "assistant",
-                        "content": f"오류: {error_msg(result)}",
-                        "sources": [],
-                        "groundedness": None,
-                    })
-            except Exception as exc:
-                st.session_state.chat_messages.append({
-                    "role": "assistant",
-                    "content": f"요청 실패: {exc}",
-                    "sources": [],
-                    "groundedness": None,
-                })
-        st.rerun()
+        with st.chat_message("assistant"):
+            with st.spinner(""):
+                try:
+                    result = api_post(
+                        f"{API_PREFIX}/query",
+                        {"question": question, "top_k": 5, "date_to": str(date.today())},
+                        timeout=90,
+                    )
+                except Exception as exc:
+                    result = None
+                    _exc = exc
+
+            if result is None:
+                full_answer = f"요청 실패: {_exc}"
+                sources: list = []
+                groundedness = None
+            elif result.get("success"):
+                data = result["data"]
+                intent = data.get("intent", "")
+                answer = data.get("answer", "")
+                prefix = "📊 **트렌드 비교 결과**\n\n" if intent == "trend_comparison" else ""
+                full_answer = prefix + answer
+                sources = data.get("sources", [])
+                groundedness = data.get("groundedness_score")
+            else:
+                full_answer = f"오류: {error_msg(result)}"
+                sources = []
+                groundedness = None
+
+            st.write(full_answer)
+            if groundedness is not None:
+                st.caption(f"Groundedness: {groundedness:.2f}")
+            if sources:
+                with st.expander(f"근거 문서 {len(sources)}건"):
+                    for src in sources:
+                        title = src.get("title") or src.get("document_id") or "문서"
+                        period = src.get("period", "")
+                        period_label = f" ({period})" if period else ""
+                        if src.get("url"):
+                            st.markdown(f"- [{title}{period_label}]({src['url']})")
+                        else:
+                            st.markdown(f"- {title}{period_label}")
+
+        st.session_state.chat_messages.append({
+            "role": "assistant",
+            "content": full_answer,
+            "sources": sources,
+            "groundedness": groundedness,
+        })
