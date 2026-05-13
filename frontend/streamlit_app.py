@@ -323,7 +323,7 @@ st.markdown(
     [data-testid="stBottom"] > div {
         background: var(--bg-surface) !important;
     }
-    /* 채팅 입력 박스 외곽 래퍼 (Streamlit 내부 클래스, 변경 불가) */
+    /* 채팅 입력 박스 외곽 래퍼 (Streamlit 1.45 기준 내부 클래스 — 버전 업 시 재확인 필요) */
     .e1vtqrcf1 {
         border: 1px solid var(--border) !important;
         background: var(--bg-input) !important;
@@ -391,7 +391,7 @@ with st.sidebar:
     with msg_area:
         if not st.session_state.chat_messages and not has_pending:
             st.markdown(
-                "<div style='color:#888; font-size:0.85rem; margin-top:0.5rem;'>"
+                "<div style='color:var(--text-muted); font-size:0.85rem; margin-top:0.5rem;'>"
                 "예시 질문:<br><br>"
                 "• 최근 LangGraph 관련 주요 연구는?<br>"
                 "• 지난주 대비 이번 주 멀티에이전트 트렌드 변화는?<br>"
@@ -424,6 +424,8 @@ with st.sidebar:
 
             with st.chat_message("assistant"):
                 with st.spinner(""):
+                    result = None
+                    _exc: Exception | None = None
                     try:
                         result = api_post(
                             f"{API_PREFIX}/query",
@@ -431,7 +433,6 @@ with st.sidebar:
                             timeout=90,
                         )
                     except Exception as exc:
-                        result = None
                         _exc = exc
 
                 if result is None:
