@@ -107,8 +107,12 @@ async def lifespan(app: FastAPI):
         scheduler = get_scheduler_service()
         if scheduler is not None:
             ensure_loop_running(scheduler)
-            # 효력 일자 기준 다이제스트가 없으면 즉시 생성 (스케줄 시각을 기다리지 않음).
-            _spawn_startup_digest_thread(scheduler.state.config)
+            # SCHEDULER_ENABLED=false 로 명시적으로 꺼둔 경우엔 부팅 자동 실행도 건너뛴다.
+            # 그렇지 않으면 스케줄링을 disable 한 의도와 무관하게 부팅이 수집/LLM 호출을
+            # 트리거할 수 있다.
+            if scheduler.state.config.enabled:
+                # 효력 일자 기준 다이제스트가 없으면 즉시 생성 (스케줄 시각을 기다리지 않음).
+                _spawn_startup_digest_thread(scheduler.state.config)
     try:
         yield
     finally:
