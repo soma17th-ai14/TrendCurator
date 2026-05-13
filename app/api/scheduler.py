@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, ValidationError
 from app.api.responses import ErrorResponse, error_response
 from app.core.models import Source
 from app.core.scheduler_settings import create_scheduler_from_env
-from app.services.scheduler import SchedulerConfig, SchedulerConfigError, SchedulerService
+from app.services.scheduler import SchedulerConfig, SchedulerConfigError, SchedulerService, SchedulerState
 
 router = APIRouter()
 
@@ -79,8 +79,7 @@ def update_scheduler(
     request: SchedulerUpdateRequest,
     scheduler: SchedulerService | None = Depends(get_scheduler_service),
 ) -> SchedulerResponse:
-    if scheduler is None:
-        return _init_error_response()
+    global _SCHEDULER, _SCHEDULER_ERROR
     try:
         config = SchedulerConfig(
             enabled=request.enabled,
@@ -88,7 +87,12 @@ def update_scheduler(
             timezone=request.timezone,
             sources=tuple(request.sources),
         )
-        scheduler.update_config(config)
+        if scheduler is None:
+            _SCHEDULER = SchedulerService(SchedulerState(config=config))
+            _SCHEDULER_ERROR = None
+            scheduler = _SCHEDULER
+        else:
+            scheduler.update_config(config)
     except SchedulerConfigError as exc:
         return SchedulerResponse(
             success=False,
