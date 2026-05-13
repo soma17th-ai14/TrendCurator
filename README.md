@@ -120,7 +120,20 @@ SCHEDULER_ENABLED=true
 SCHEDULER_TIME=09:00
 SCHEDULER_TIMEZONE=Asia/Seoul
 SCHEDULER_SOURCES=huggingface,hackernews
+SCHEDULER_AUTOSTART=1            # 앱 부팅 시 스케줄러 루프와 효력 일자 다이제스트 자동 생성 시작
+CHROMA_RESET_ON_STARTUP=1        # 데모/시연용: 부팅 시 벡터DB 컬렉션 청소 (기본 비활성)
 ```
+
+`CHROMA_RESET_ON_STARTUP=1` 은 시연 환경에서 깨끗한 상태로 시작할 때 사용하며, 부팅 시 다음
+세 가지를 모두 비웁니다.
+
+- 벡터DB(ChromaDB) 컬렉션
+- 다이제스트 파일 (`data/digests/digest_*.json`)
+- 수집 상태 파일 (`data/collection_status.json`)
+
+`SCHEDULER_AUTOSTART=1` 과 함께 사용하면, 청소 직후 효력 일자 다이제스트가 새로 생성됩니다.
+평소 개발 환경에서는 비활성으로 두는 것을 권장합니다. 중복 문서 자체는 `chunk_id` 기준 upsert
+로 갱신되므로, 이 옵션 없이도 동일 문서 재수집이 중복 row 를 만들지는 않습니다.
 
 ## 팀 역할 분담
 

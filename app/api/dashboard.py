@@ -9,10 +9,12 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.api.responses import ErrorResponse, error_response
+from app.api.scheduler import get_scheduler_service
 from app.core.chroma_client import ChromaClient
 from app.core.settings import Settings, get_settings
 from app.services.collection_status_store import CollectionStatusStore
 from app.services.digest_store import FileDigestStore
+from app.services.scheduler import SchedulerConfig, SchedulerService, effective_digest_date
 
 router = APIRouter()
 
@@ -40,6 +42,7 @@ def get_dashboard(
     chroma: ChromaClient = Depends(get_chroma),
     digest_store: FileDigestStore = Depends(get_digest_store),
     status_store: CollectionStatusStore = Depends(get_collection_status_store),
+    scheduler: SchedulerService | None = Depends(get_scheduler_service),
 ) -> DashboardResponse:
     try:
         source_stats = chroma.count_by_source()
@@ -47,6 +50,8 @@ def get_dashboard(
         latest_digest = _latest_digest_data(digest_store)
         last_collected_at = status_store.load_collected_at()
         total_count = sum(source_stats.values())
+        effective_date = _effective_date(scheduler)
+        has_effective_digest = _has_digest_for_date(digest_store, effective_date)
     except Exception as exc:
         return DashboardResponse(
             success=False,
@@ -57,6 +62,8 @@ def get_dashboard(
         success=True,
         data={
             "latest_digest": latest_digest,
+            "effective_date": effective_date.isoformat(),
+            "has_effective_digest": has_effective_digest,
             "collection_status": {
                 "last_collected_at": last_collected_at,
                 "collected_count": total_count,
@@ -84,3 +91,17 @@ def _latest_digest_data(store: FileDigestStore) -> dict[str, Any] | None:
         "date": latest.date.isoformat(),
         "item_count": latest.item_count,
     }
+
+
+def _effective_date(scheduler: SchedulerService | None):
+    """스케줄러가 초기화돼 있으면 그 설정의 효력 일자, 아니면 기본 설정 기준 효력 일자."""
+    config = scheduler.state.config if scheduler is not None else SchedulerConfig()
+    return effective_digest_date(config)
+
+
+def _has_digest_for_date(store: FileDigestStore, target_date) -> bool:
+    digest_id = f"digest_{target_date:%Y%m%d}"
+    try:
+        return store.get(digest_id) is not None
+    except Exception:
+        return False

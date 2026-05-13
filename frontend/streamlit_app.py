@@ -654,10 +654,19 @@ with dg_ctrl:
     else:
         selected_id = None
 
-today_str = str(date.today())
+# 효력 일자: SCHEDULER_TIME 이전이면 어제, 이후면 오늘.
+# 외부 소스(HuggingFace 등)가 새벽엔 당일 데이터를 아직 공개하지 않아 빈 결과를 주는 점을
+# 우회하기 위해, 백엔드 대시보드 API가 계산해 준 effective_date 를 그대로 사용한다.
+try:
+    dash_payload = api_get(f"{API_PREFIX}/dashboard")
+    dash_data = dash_payload.get("data") or {} if dash_payload.get("success") else {}
+    today_str = dash_data.get("effective_date") or str(date.today())
+except Exception:
+    today_str = str(date.today())
+
 has_today = any(d["date"] == today_str for d in digest_list)
 if not has_today:
-    st.info("오늘의 Digest가 아직 생성되지 않았습니다.")
+    st.info(f"{today_str} 자 Digest가 아직 생성되지 않았습니다.")
 
 btn_col, num_col = st.columns([3, 1])
 with num_col:

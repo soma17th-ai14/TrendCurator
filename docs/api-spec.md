@@ -408,6 +408,8 @@ Response
       "date": "2026-05-06",
       "item_count": 10
     },
+    "effective_date": "2026-05-06",
+    "has_effective_digest": true,
     "collection_status": {
       "last_collected_at": "2026-05-06T09:00:00",
       "collected_count": 86,
@@ -431,6 +433,12 @@ Response
   "error": null
 }
 ```
+
+- `effective_date`: 스케줄러 발행 시각(`SCHEDULER_TIME`) 기준 "오늘의 다이제스트" 효력 일자.
+  발행 시각 이전(예: `09:00` 일 때 `00:00 ~ 08:59`)에는 어제 일자를, 이후에는 오늘 일자를
+  반환한다. HuggingFace Daily Papers 등 일부 외부 소스가 새벽엔 당일 데이터를 공개하지
+  않는 점을 보정해 UI가 일관되게 "최근 완성된 다이제스트"를 가리킬 수 있도록 한다.
+- `has_effective_digest`: `effective_date` 일자 다이제스트가 저장돼 있는지 여부.
 
 ## 9. 스케줄러 API
 

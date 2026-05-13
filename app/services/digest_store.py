@@ -73,6 +73,24 @@ class FileDigestStore:
 
         return sorted(filtered, key=lambda item: (item.date, item.digest_id), reverse=True)
 
+    def delete_all(self) -> int:
+        """저장된 모든 digest JSON 파일을 삭제하고 삭제한 개수를 반환한다.
+
+        데모/시연 환경에서 부팅 시 벡터DB 청소와 함께 호출되어, 다음 부팅 사이클의 효력 일자
+        다이제스트가 항상 새로 생성되도록 한다. 디렉토리 자체가 없으면 0 을 반환한다.
+        """
+        if not self._root.exists():
+            return 0
+
+        count = 0
+        for path in self._root.glob("digest_*.json"):
+            try:
+                path.unlink()
+                count += 1
+            except OSError:
+                continue
+        return count
+
     def latest(self) -> DigestGenerationRunResult | None:
         if not self._root.exists():
             return None

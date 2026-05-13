@@ -3,9 +3,12 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
+from app.api import dashboard as dashboard_module
 from app.api.dashboard import get_chroma, get_collection_status_store, get_digest_store
+from app.api.scheduler import get_scheduler_service
 from app.main import app
 from app.services.digest_store import DigestStoreError
+from app.services.scheduler import SchedulerConfig, SchedulerService, SchedulerState
 
 
 class FakeChroma:
@@ -25,11 +28,15 @@ class FakeChroma:
 
 
 class FakeDigestStore:
-    def __init__(self, latest_digest=None) -> None:
+    def __init__(self, latest_digest=None, stored: dict | None = None) -> None:
         self._latest_digest = latest_digest
+        self._stored = stored or {}
 
     def latest(self):
         return self._latest_digest
+
+    def get(self, digest_id: str):
+        return self._stored.get(digest_id)
 
 
 class FakeCollectionStatusStore:
@@ -154,3 +161,74 @@ def test_dashboard_returns_null_last_collected_at_when_never_collected():
         app.dependency_overrides.clear()
 
     assert response.json()["data"]["collection_status"]["last_collected_at"] is None
+
+
+def test_dashboard_returns_effective_date_and_has_effective_digest(monkeypatch):
+    """대시보드 응답이 효력 일자와 해당 일자 다이제스트 존재 여부를 포함해야 한다."""
+    fixed_date = date(2026, 5, 13)
+    monkeypatch.setattr(
+        dashboard_module,
+        "effective_digest_date",
+        lambda config, now=None: fixed_date,
+    )
+
+    digest_store = FakeDigestStore(
+        stored={"digest_20260513": SimpleNamespace(digest_id="digest_20260513")},
+    )
+    scheduler = SchedulerService(SchedulerState(config=SchedulerConfig()))
+
+    _override(digest_store=digest_store)
+    app.dependency_overrides[get_scheduler_service] = lambda: scheduler
+    try:
+        response = TestClient(app).get("/api/v1/dashboard")
+    finally:
+        app.dependency_overrides.clear()
+
+    data = response.json()["data"]
+    assert data["effective_date"] == "2026-05-13"
+    assert data["has_effective_digest"] is True
+
+
+def test_dashboard_marks_effective_digest_missing_when_not_stored(monkeypatch):
+    """효력 일자 다이제스트가 저장돼 있지 않으면 has_effective_digest=False 가 와야 한다."""
+    fixed_date = date(2026, 5, 13)
+    monkeypatch.setattr(
+        dashboard_module,
+        "effective_digest_date",
+        lambda config, now=None: fixed_date,
+    )
+
+    digest_store = FakeDigestStore(stored={})
+    scheduler = SchedulerService(SchedulerState(config=SchedulerConfig()))
+
+    _override(digest_store=digest_store)
+    app.dependency_overrides[get_scheduler_service] = lambda: scheduler
+    try:
+        response = TestClient(app).get("/api/v1/dashboard")
+    finally:
+        app.dependency_overrides.clear()
+
+    data = response.json()["data"]
+    assert data["effective_date"] == "2026-05-13"
+    assert data["has_effective_digest"] is False
+
+
+def test_dashboard_falls_back_to_default_config_when_scheduler_unavailable(monkeypatch):
+    """스케줄러 초기화 실패 시 기본 SchedulerConfig 기준으로 효력 일자를 산출한다."""
+    fixed_date = date(2026, 5, 12)
+    monkeypatch.setattr(
+        dashboard_module,
+        "effective_digest_date",
+        lambda config, now=None: fixed_date,
+    )
+
+    _override()
+    app.dependency_overrides[get_scheduler_service] = lambda: None
+    try:
+        response = TestClient(app).get("/api/v1/dashboard")
+    finally:
+        app.dependency_overrides.clear()
+
+    data = response.json()["data"]
+    assert data["effective_date"] == "2026-05-12"
+    assert data["has_effective_digest"] is False
