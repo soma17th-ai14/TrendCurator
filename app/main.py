@@ -7,7 +7,13 @@ import os
 import threading
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
+
+# lifespan 에서 os.getenv 로 읽는 운영 옵션(CHROMA_RESET_ON_STARTUP, SCHEDULER_AUTOSTART 등)이
+# .env 파일에서도 적용되도록, 라우터 import 전에 한 번만 dotenv 를 로드한다.
+load_dotenv(".env")
+load_dotenv(".env.local")
 
 from app.api.dashboard import router as dashboard_router
 from app.api.digest import router as digest_router
