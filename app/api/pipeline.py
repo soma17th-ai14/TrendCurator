@@ -78,7 +78,8 @@ def collect(
     try:
         documents, fetch_warnings = asyncio.run(_fetch_all(request.date))
 
-        if not documents and fetch_warnings:
+        # 모든 소스가 예외로 실패한 경우에만 전체 실패 처리
+        if len(fetch_warnings) == len(_COLLECTORS):
             return CollectResponse(
                 success=False,
                 error="모든 소스 수집 실패: " + "; ".join(fetch_warnings),
