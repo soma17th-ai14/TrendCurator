@@ -177,16 +177,16 @@ Set `SOLAR_API_KEY` before running when real Solar generation or embedding calls
 - `POST /api/v1/groundedness/check`
 - `POST /api/v1/digest/generate`
 
-### 질의 오케스트레이션
+### Query orchestration
 
-`POST /api/v1/query`는 이전 통합 작업에서 만든 질의 에이전트를 실제 실행 흐름에 연결합니다.
+`POST /api/v1/query` uses the query agents from the earlier integration work:
 
 ```text
 IntentRouter
 -> GENERAL_QA: QueryRewriter -> Retriever
 -> TREND_COMPARISON: DateRangeParser -> PeriodRetriever
--> 답변 생성
+-> answer generation
 -> GroundednessChecker
 ```
 
-Solar API key나 VectorDB 검색을 사용할 수 없는 경우에도 500 오류로 중단하지 않고, 경고와 빈 근거 목록을 포함한 응답을 반환합니다.
+If the Solar API key or VectorDB search is unavailable, the workflow returns a warning and an empty-source response instead of failing with a 500 error.

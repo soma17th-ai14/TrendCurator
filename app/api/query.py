@@ -17,12 +17,6 @@ from app.core.solar_client import SolarClient
 from app.core.solar_llm_client import SolarLLMClient
 from app.core.settings import get_solar_settings
 from app.graphs.query_graph import QueryGraphRunner
-from app.api.responses import ErrorResponse, error_response
-from app.prompts.query_agents import (
-    load_query_date_range_parser_prompt,
-    load_query_intent_router_prompt,
-    load_query_rewriter_prompt,
-)
 
 router = APIRouter()
 
@@ -46,7 +40,7 @@ class QueryData(BaseModel):
 class QueryResponse(BaseModel):
     success: bool
     data: QueryData | None = None
-    error: ErrorResponse | None = None
+    error: str | None = None
 
 
 def get_query_runner(retriever: Retriever = Depends(get_retriever)) -> QueryGraphRunner:
@@ -72,10 +66,7 @@ def run_query(
             base_date=request.date_to,
         )
     except Exception as exc:
-        return QueryResponse(
-            success=False,
-            error=error_response("QUERY_EXECUTION_FAILED", str(exc)),
-        )
+        return QueryResponse(success=False, error=str(exc))
 
     return QueryResponse(
         success=True,
@@ -119,14 +110,39 @@ def _build_query_agents() -> dict[str, object]:
         "answer_llm_client": answer_llm_client,
         "intent_router": IntentRouter(
             llm_client=llm_client,
-            prompt_template=load_query_intent_router_prompt(),
+            prompt_template=(
+                "Classify the user question for TrendCurator.\n"
+                "Return JSON with intent, confidence, reasoning.\n"
+                "intent must be exactly TREND_COMPARISON or GENERAL_QA.\n"
+                "TREND_COMPARISON: the user EXPLICITLY asks to compare two different time periods "
+                "(e.g. 'compare last week vs this week', 'how did things change', '지난주 대비 이번주').\n"
+                "GENERAL_QA: the user asks for a summary, explanation, or current status of a topic "
+                "(e.g. 'summarize', 'what is', 'recent trends in X', 'latest papers on Y').\n"
+                "When in doubt, choose GENERAL_QA.\n"
+                "Question: {query}\nBase date: {base_date}"
+            ),
         ),
         "query_rewriter": QueryRewriter(
             llm_client=llm_client,
-            prompt_template=load_query_rewriter_prompt(),
+            prompt_template=(
+                "Rewrite the user question into 1-2 concise vector-search queries.\n"
+                "Return JSON with optimized_queries and search_filter.sources.\n"
+                "sources must be a list containing 'huggingface', 'hackernews', or both.\n"
+                "Question: {query}"
+            ),
         ),
         "date_range_parser": DateRangeParser(
             llm_client=llm_client,
-            prompt_template=load_query_date_range_parser_prompt(),
+            prompt_template=(
+                "Extract two comparison time periods from the user question.\n"
+                "Return JSON in EXACTLY this format (no other keys):\n"
+                '{{"period_a": {{"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}}, '
+                '"period_b": {{"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}}, '
+                '"focus_keywords": ["keyword1", "keyword2"]}}\n'
+                "period_a = the older/previous period, period_b = the more recent period.\n"
+                "If no specific period is mentioned, use: "
+                "period_b = 7 days ending on base_date, period_a = the 7 days before that.\n"
+                "Question: {query}\nBase date: {base_date}"
+            ),
         ),
     }
