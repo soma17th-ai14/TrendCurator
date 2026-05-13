@@ -16,6 +16,7 @@ except Exception:  # pragma: no cover - keeps imports usable before deps install
 from app.agents.date_range_parser import DateRange, DateRangeParser
 from app.agents.intent_router import IntentRouter
 from app.agents.query_rewriter import QueryRewriter
+from app.core.llm_client import LLMClient
 from app.services.digest_retriever import DigestSearchResult
 from app.services.groundedness import GroundednessChecker, GroundednessCheckRequest
 from app.services.period_retriever import (
@@ -74,6 +75,7 @@ class QueryGraphRunner:
         date_range_parser: DateRangeParser | None = None,
         period_retriever: PeriodRetriever | None = None,
         groundedness_checker: GroundednessChecker | None = None,
+        llm_client: LLMClient | None = None,
     ) -> None:
         self._search_client = search_client
         self._intent_router = intent_router
@@ -81,6 +83,7 @@ class QueryGraphRunner:
         self._date_range_parser = date_range_parser
         self._period_retriever = period_retriever  # None이면 search_client 직접 호출 경로 사용
         self._groundedness = groundedness_checker or GroundednessChecker()
+        self._llm_client = llm_client
         self._graph = self._build_graph()
 
     def run(self, *, question: str, top_k: int = 10, base_date: date | None = None) -> QueryGraphState:
@@ -212,18 +215,22 @@ class QueryGraphRunner:
     def _generate_answer(self, state: QueryGraphState) -> QueryGraphState:
         docs = state.get("retrieved_docs", [])
         if not docs:
-            state["answer"] = "No source documents were retrieved, so an answer could not be generated."
+            state["answer"] = "검색된 소스 문서가 없어 답변을 생성할 수 없습니다."
+            return state
+
+        if self._llm_client is not None:
+            state["answer"] = _run_async(self._generate_answer_llm(state, docs))
             return state
 
         if state["intent"] == "TREND_COMPARISON":
             metadata = state.get("comparison_metadata", {})
-            new_trends = ", ".join(metadata.get("new_trends", [])) or "no explicit new trend"
-            declining = ", ".join(metadata.get("declining_trends", [])) or "no explicit declining trend"
+            new_trends = ", ".join(metadata.get("new_trends", [])) or "신규 트렌드 없음"
+            declining = ", ".join(metadata.get("declining_trends", [])) or "감소 트렌드 없음"
             state["answer"] = (
-                "This is a comparison of retrieved documents across two periods. "
-                f"Prominent recent signals: {new_trends}. "
-                f"Weaker signals compared with the previous period: {declining}. "
-                "Interpret this answer against the listed source documents."
+                "두 기간의 검색 문서를 비교한 결과입니다. "
+                f"최근 기간의 주요 시그널: {new_trends}. "
+                f"이전 대비 약화된 시그널: {declining}. "
+                "아래 출처 문서를 참고하여 해석하세요."
             )
             return state
 
@@ -231,8 +238,37 @@ class QueryGraphRunner:
         bullets = " ".join(
             f"{doc['title']}: {doc['summary_preview']}" for doc in top_docs
         )
-        state["answer"] = f"Summary based on retrieved evidence: {bullets}"
+        state["answer"] = f"검색된 문서 기반 요약: {bullets}"
         return state
+
+    async def _generate_answer_llm(
+        self, state: QueryGraphState, docs: list[dict[str, Any]]
+    ) -> str:
+        question = state.get("question", "")
+        if state["intent"] == "TREND_COMPARISON":
+            docs_a = [d for d in docs if d.get("period") == "period_a"]
+            docs_b = [d for d in docs if d.get("period") == "period_b"]
+            context_a = _build_context(docs_a)
+            context_b = _build_context(docs_b)
+            prompt = (
+                "당신은 AI 트렌드 분석 전문가입니다.\n"
+                "두 기간의 문서를 비교하여 트렌드 변화를 한국어로 요약하세요.\n"
+                "문서에 없는 사실을 추가하지 마세요.\n\n"
+                f"질문: {question}\n\n"
+                f"[이전 기간 문서]\n{context_a}\n\n"
+                f"[최근 기간 문서]\n{context_b}"
+            )
+        else:
+            top_docs = docs[: min(5, len(docs))]
+            context = _build_context(top_docs)
+            prompt = (
+                "당신은 AI 트렌드 분석 전문가입니다.\n"
+                "아래 검색된 문서를 근거로 질문에 한국어로 답변하세요.\n"
+                "문서에 없는 사실을 추가하지 마세요.\n\n"
+                f"질문: {question}\n\n"
+                f"검색 문서:\n{context}"
+            )
+        return await self._llm_client.complete(prompt)
 
     def _check_groundedness(self, state: QueryGraphState) -> QueryGraphState:
         docs = state.get("retrieved_docs", [])
@@ -399,12 +435,12 @@ def _comparison_metadata(
         "period_a": {
             "start": period_a_start.isoformat(),
             "end": period_a_end.isoformat(),
-            "summary": f"{sum(tags_a.values())} tag signals from previous period",
+            "summary": f"이전 기간 태그 시그널 {sum(tags_a.values())}개",
         },
         "period_b": {
             "start": period_b_start.isoformat(),
             "end": period_b_end.isoformat(),
-            "summary": f"{sum(tags_b.values())} tag signals from recent period",
+            "summary": f"최근 기간 태그 시그널 {sum(tags_b.values())}개",
         },
         "new_trends": new_trends,
         "declining_trends": declining,
@@ -430,6 +466,17 @@ def _fallback_keywords(text: str) -> list[str]:
 
 def _append_warning(state: QueryGraphState, message: str) -> None:
     state.setdefault("warnings", []).append(message)
+
+
+def _build_context(docs: list[dict[str, Any]]) -> str:
+    parts = []
+    for doc in docs:
+        title = doc.get("title") or doc.get("document_id", "")
+        body = doc.get("summary_preview") or doc.get("content", "")
+        if body:
+            body = body[:400]
+        parts.append(f"- {title}: {body}")
+    return "\n".join(parts)
 
 
 def _run_async(awaitable):

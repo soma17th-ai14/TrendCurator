@@ -56,6 +56,7 @@ def get_query_runner(retriever: Retriever = Depends(get_retriever)) -> QueryGrap
         intent_router=agents.get("intent_router"),
         query_rewriter=agents.get("query_rewriter"),
         date_range_parser=agents.get("date_range_parser"),
+        llm_client=agents.get("answer_llm_client"),
     )
 
 
@@ -109,7 +110,13 @@ def _build_query_agents() -> dict[str, object]:
         temperature=0.0,
         response_format={"type": "json_object"},
     )
+    answer_llm_client = SolarLLMClient(
+        solar_client=solar_client,
+        model=settings.digest_model,
+        temperature=0.3,
+    )
     return {
+        "answer_llm_client": answer_llm_client,
         "intent_router": IntentRouter(
             llm_client=llm_client,
             prompt_template=load_query_intent_router_prompt(),

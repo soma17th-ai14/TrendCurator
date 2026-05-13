@@ -67,10 +67,10 @@ class GroundednessChecker:
         feedback = "\n".join(f"- {item}" for item in result.feedback)
         return (
             f"{original_prompt}\n\n"
-            "Groundedness repair instructions:\n"
-            "- Use only facts explicitly present in the provided source documents.\n"
-            "- If evidence is missing, say that the source does not state it.\n"
-            "- Keep citations tied to the source document ids.\n"
+            "근거 보완 지시:\n"
+            "- 제공된 소스 문서에 명시된 사실만 사용하세요.\n"
+            "- 근거가 없는 내용은 '소스에 명시되지 않음'으로 표현하세요.\n"
+            "- 인용은 반드시 소스 문서 id와 연결하세요.\n"
             f"{feedback}"
         )
 
@@ -99,10 +99,10 @@ class GroundednessChecker:
 
     def _feedback(self, score: float, threshold: float) -> list[str]:
         if score >= threshold:
-            return ["Answer is sufficiently supported by the retrieved context."]
+            return ["답변이 검색된 컨텍스트에 충분히 근거하고 있습니다."]
         return [
-            f"Groundedness score {score:.2f} is below threshold {threshold:.2f}.",
-            "Regenerate with fewer unsupported claims and stronger source anchoring.",
+            f"근거 점수 {score:.2f}가 임계값 {threshold:.2f}에 미치지 못합니다.",
+            "근거 없는 주장을 줄이고 소스 인용을 강화하여 재생성하세요.",
         ]
 
 
