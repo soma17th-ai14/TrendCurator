@@ -21,6 +21,18 @@ class CollectionStatusStore:
     def load_collected_at(self) -> str | None:
         return self._load_raw().get("last_collected_at")
 
+    def clear(self) -> bool:
+        """저장된 수집 상태 파일을 삭제한다.
+
+        파일이 없으면 ``False`` 를 반환하고 조용히 통과한다. 데모/시연 환경에서 부팅 시
+        벡터DB 청소와 함께 호출되어 대시보드의 "마지막 수집 시각" 표시가 초기 상태로 돌아가도록 한다.
+        """
+        try:
+            self._path.unlink()
+            return True
+        except FileNotFoundError:
+            return False
+
     def _load_raw(self) -> dict:
         if not self._path.exists():
             return {}
