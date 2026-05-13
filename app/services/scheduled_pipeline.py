@@ -33,6 +33,16 @@ from app.services.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
 
+
+class PipelineRunError(RuntimeError):
+    """스케줄러가 호출한 파이프라인이 복구 가능한 hard failure로 종료될 때 발생합니다.
+
+    예외가 전파되면 ``SchedulerService.run_due`` 가 ``last_run_at`` 을 갱신하지 않으므로
+    동일 일자 내 다음 점검 사이클에서 재시도가 가능합니다. ``None`` 반환은 "정상적으로
+    실행 완료"로 해석되어 그날 재시도가 불가능해지므로 사용하지 않습니다.
+    """
+
+
 COLLECTORS = [
     HuggingFaceDailyPapersCollector(),
     HackerNewsCollector(),
@@ -63,7 +73,11 @@ async def fetch_all_documents(
 
 
 def run_pipeline(run_date: date, config: SchedulerConfig) -> str | None:
-    """수집 → 인제스트 → 다이제스트 생성 전체 파이프라인을 실행합니다."""
+    """수집 → 인제스트 → 다이제스트 생성 전체 파이프라인을 실행합니다.
+
+    실패 시 ``PipelineRunError`` 를 raise합니다. 이는 ``SchedulerService.run_due`` 에서
+    ``last_run_at`` 갱신을 막아 동일 일자 내 재시도를 허용합니다.
+    """
     settings: Settings = get_settings()
 
     # 1. 수집
@@ -72,11 +86,11 @@ def run_pipeline(run_date: date, config: SchedulerConfig) -> str | None:
         documents, warnings = asyncio.run(fetch_all_documents(run_date, sources=active_sources))
     except Exception as exc:
         logger.error("스케줄러: 수집 단계 실패 (%s)", exc)
-        return None
+        raise PipelineRunError(f"수집 단계 실패: {exc}") from exc
 
-    if len(warnings) == len(active_sources):
+    if active_sources and len(warnings) == len(active_sources):
         logger.error("스케줄러: 모든 소스 수집 실패 — %s", "; ".join(warnings))
-        return None
+        raise PipelineRunError("모든 소스 수집 실패: " + "; ".join(warnings))
 
     if warnings:
         logger.warning("스케줄러: 일부 소스 수집 실패 — %s", "; ".join(warnings))
@@ -98,7 +112,7 @@ def run_pipeline(run_date: date, config: SchedulerConfig) -> str | None:
         CollectionStatusStore(settings.collection_status_path).save_collected_at(collected_at)
     except Exception as exc:
         logger.error("스케줄러: 인제스트 단계 실패 (%s)", exc)
-        return None
+        raise PipelineRunError(f"인제스트 단계 실패: {exc}") from exc
 
     # 3. 다이제스트 생성
     try:
@@ -142,7 +156,7 @@ def run_pipeline(run_date: date, config: SchedulerConfig) -> str | None:
 
     except Exception as exc:
         logger.error("스케줄러: 다이제스트 생성 실패 (%s)", exc)
-        return None
+        raise PipelineRunError(f"다이제스트 생성 실패: {exc}") from exc
 
 
 def _fallback_digest(request):

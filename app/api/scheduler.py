@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -21,24 +22,31 @@ router = APIRouter()
 _SCHEDULER: SchedulerService | None = None
 _SCHEDULER_ERROR: str | None = None
 _LOOP: SchedulerLoop | None = None
+_LOOP_LOCK = threading.Lock()
 
 
 def ensure_loop_running(scheduler: SchedulerService) -> None:
-    """루프가 실행 중이 아니면 시작합니다. 이미 살아있으면 무시합니다."""
+    """루프가 실행 중이 아니면 시작합니다. 이미 살아있으면 무시합니다.
+
+    동시 호출 시 중복 스레드가 생성되지 않도록 모듈 단위 lock으로 check-then-start를
+    원자적으로 수행합니다.
+    """
     global _LOOP
-    if _LOOP is not None and _LOOP._thread is not None and _LOOP._thread.is_alive():
-        return
-    from app.services.scheduler_loop import SchedulerLoop
-    _LOOP = SchedulerLoop(scheduler)
-    _LOOP.start()
+    with _LOOP_LOCK:
+        if _LOOP is not None and _LOOP._thread is not None and _LOOP._thread.is_alive():
+            return
+        from app.services.scheduler_loop import SchedulerLoop
+        _LOOP = SchedulerLoop(scheduler)
+        _LOOP.start()
 
 
 def stop_scheduler_loop() -> None:
     """실행 중인 루프를 중단합니다."""
     global _LOOP
-    if _LOOP is not None:
-        _LOOP.stop()
-        _LOOP = None
+    with _LOOP_LOCK:
+        if _LOOP is not None:
+            _LOOP.stop()
+            _LOOP = None
 
 
 class SchedulerData(BaseModel):
