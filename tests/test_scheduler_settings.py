@@ -19,14 +19,19 @@ def test_load_scheduler_config_from_env_overrides_values() -> None:
             "SCHEDULER_ENABLED": "false",
             "SCHEDULER_TIME": "18:30",
             "SCHEDULER_TIMEZONE": "UTC",
-            "SCHEDULER_SOURCES": "huggingface, hackernews, custom",
+            "SCHEDULER_SOURCES": "huggingface",
         }
     )
 
     assert config.enabled is False
     assert config.time == "18:30"
     assert config.timezone == "UTC"
-    assert config.sources == ("huggingface", "hackernews", "custom")
+    assert config.sources == ("huggingface",)
+
+
+def test_load_scheduler_config_from_env_rejects_unknown_source() -> None:
+    with pytest.raises(SchedulerConfigError):
+        load_scheduler_config_from_env({"SCHEDULER_SOURCES": "huggingface,custom"})
 
 
 def test_load_scheduler_config_from_process_env_when_env_is_omitted(monkeypatch) -> None:

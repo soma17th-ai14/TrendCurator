@@ -47,6 +47,9 @@ def parse_bool_env(value: Optional[str], default: bool) -> bool:
     raise SchedulerConfigError(f"invalid boolean value: {value}")
 
 
+_VALID_SOURCES: frozenset[str] = frozenset(DEFAULT_SOURCES)
+
+
 def parse_sources_env(value: Optional[str]) -> tuple[str, ...]:
     if value is None or value.strip() == "":
         return DEFAULT_SOURCES
@@ -54,6 +57,11 @@ def parse_sources_env(value: Optional[str]) -> tuple[str, ...]:
     sources = tuple(source.strip() for source in value.split(",") if source.strip())
     if not sources:
         raise SchedulerConfigError("sources must not be empty")
+
+    invalid = [s for s in sources if s not in _VALID_SOURCES]
+    if invalid:
+        raise SchedulerConfigError(f"알 수 없는 source: {', '.join(invalid)}")
+
     return sources
 
 
