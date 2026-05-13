@@ -10,7 +10,7 @@ from typing import Protocol
 
 from app.agents.relevance_filter import RelevanceDecision, SolarMiniRelevanceFilter
 from app.core.models import NormalizedDocument
-from app.core.settings import SolarSettings
+from app.core.settings import Settings, SolarSettings, get_solar_settings
 from app.core.solar_client import SolarClient, SolarMessage
 
 
@@ -25,6 +25,14 @@ class SolarJsonClient(Protocol):
         messages: list[SolarMessage],
         temperature: float = 0.2,
     ) -> dict:
+        ...
+
+
+class RelevanceFilter(Protocol):
+    def evaluate(self, document: NormalizedDocument) -> RelevanceDecision:
+        ...
+
+    def filter(self, documents: list[NormalizedDocument]) -> list[RelevanceDecision]:
         ...
 
 
@@ -149,3 +157,35 @@ class SolarMiniLLMRelevanceFilter:
 
         if not isinstance(result.get("reason"), str) or not result["reason"].strip():
             raise RuntimeError("Solar 관련성 필터 응답의 reason 값이 유효하지 않습니다.")
+
+
+def build_solar_mini_relevance_filter(
+    settings: Settings | None = None,
+    *,
+    fallback_on_error: bool = True,
+) -> RelevanceFilter:
+    """Solar Mini API 기반 관련성 필터를 생성합니다.
+
+    개발/테스트 환경처럼 ``SOLAR_API_KEY`` 가 비어 있으면 기존 로컬 키워드 필터를
+    반환합니다. 키가 설정된 운영/시연 환경에서는 Solar Mini를 호출하되,
+    개별 API 오류나 잘못된 응답은 기본적으로 로컬 판정으로 fallback합니다.
+    """
+
+    if settings is not None:
+        if not settings.solar_api_key:
+            return SolarMiniRelevanceFilter()
+        solar_settings = SolarSettings(
+            api_key=settings.solar_api_key,
+            base_url=settings.solar_base_url,
+            mini_model=settings.solar_mini_model,
+        )
+    else:
+        try:
+            solar_settings = get_solar_settings()
+        except RuntimeError:
+            return SolarMiniRelevanceFilter()
+
+    return SolarMiniLLMRelevanceFilter.from_settings(
+        solar_settings,
+        fallback_on_error=fallback_on_error,
+    )

@@ -13,7 +13,7 @@ from datetime import date, datetime, timezone
 from app.agents.chunker import Chunker
 from app.agents.digest_generator import SolarProDigestGenerator
 from app.agents.embedder import Embedder
-from app.agents.relevance_filter import SolarMiniRelevanceFilter
+from app.agents.solar_relevance_filter import build_solar_mini_relevance_filter
 from app.agents.retriever import Retriever
 from app.collectors.hackernews import HackerNewsCollector
 from app.collectors.huggingface import HuggingFaceDailyPapersCollector
@@ -98,7 +98,7 @@ def run_pipeline(run_date: date, config: SchedulerConfig) -> str | None:
     # 2. 정규화 → 관련성 필터 → 인제스트
     try:
         normalized = normalize_documents(documents)
-        decisions = SolarMiniRelevanceFilter().filter(normalized)
+        decisions = build_solar_mini_relevance_filter(settings).filter(normalized)
         ingestion = IngestionService(
             chunker=Chunker(),
             embedder=Embedder(EmbeddingClient(settings)),

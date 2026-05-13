@@ -7,7 +7,7 @@ from typing import Optional
 from app.agents.chunker import Chunker
 from app.agents.digest_generator import SolarProDigestGenerator
 from app.agents.embedder import Embedder
-from app.agents.relevance_filter import SolarMiniRelevanceFilter
+from app.agents.solar_relevance_filter import build_solar_mini_relevance_filter
 from app.agents.retriever import Retriever
 from app.collectors.hackernews import HackerNewsCollector
 from app.collectors.huggingface import HuggingFaceDailyPapersCollector
@@ -57,7 +57,7 @@ def run_daily_digest_pipeline(run_date: date, config: SchedulerConfig) -> Option
     documents = asyncio.run(_collect_for_date(run_date, config))
     if documents:
         normalized = normalize_documents(documents)
-        decisions = SolarMiniRelevanceFilter().filter(normalized)
+        decisions = build_solar_mini_relevance_filter(settings).filter(normalized)
         IngestionService(
             chunker=Chunker(),
             embedder=Embedder(EmbeddingClient(settings)),

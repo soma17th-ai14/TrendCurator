@@ -113,11 +113,14 @@ Request
 ```text
 Collector (HuggingFace + HackerNews 병렬)
 -> Normalizer
--> Relevance Filter (SolarMini)
+-> Relevance Filter (Solar Mini API, 로컬 키워드 fallback)
 -> Chunker
 -> Embedder
 -> ChromaDB 저장
 ```
+
+관련성 필터는 `SOLAR_API_KEY`가 설정된 환경에서 Solar Mini API로 문서별 관련성을 판정합니다.
+API 키가 없거나 Solar Mini 호출/응답 파싱이 실패하면 기존 로컬 키워드 기반 판정으로 fallback합니다.
 
 Response
 
