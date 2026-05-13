@@ -18,6 +18,7 @@ from app.services.digest_generation_adapter import DigestGenerationAdapter
 from app.services.digest_retriever import DailyDigestRetriever
 from app.services.digest_store import DigestStoreError, FileDigestStore
 from app.services.groundedness import GroundednessChecker, GroundednessCheckRequest
+from app.services.profile_store import FileProfileStore
 
 router = APIRouter()
 
@@ -59,24 +60,37 @@ def get_digest_store(settings: Settings = Depends(get_settings)) -> FileDigestSt
     return FileDigestStore(settings.digest_data_path)
 
 
+def get_profile_store(settings: Settings = Depends(get_settings)) -> FileProfileStore:
+    return FileProfileStore(settings.profile_data_path)
+
+
 @router.post("/digest/generate", response_model=DigestGenerateResponse)
 def generate_digest(
     request: DigestGenerateRequest,
     retriever: Retriever = Depends(get_retriever),
     store: FileDigestStore = Depends(get_digest_store),
+    profile_store: FileProfileStore = Depends(get_profile_store),
 ) -> DigestGenerateResponse:
     try:
+        keywords = request.keywords
+        language = "ko"
+        if request.profile_based:
+            profile = profile_store.load()
+            if profile is not None:
+                keywords = profile.keywords
+                language = profile.language
+
         retrieval = DailyDigestRetriever(retriever).retrieve(DailyDigestRetrievalRequest(
             digest_date=request.date,
             top_k=request.top_k,
             profile_based=request.profile_based,
-            keywords=request.keywords,
+            keywords=keywords,
             sources=["huggingface", "hackernews"],
         ))
-        adapter = DigestGenerationAdapter(language="ko")
+        adapter = DigestGenerationAdapter(language=language)
         generation_request = adapter.to_generation_request(
             retrieval,
-            profile_keywords=request.keywords,
+            profile_keywords=keywords,
         )
 
         try:

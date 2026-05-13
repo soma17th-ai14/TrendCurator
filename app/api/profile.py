@@ -8,8 +8,10 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.api.responses import ErrorResponse, error_response
+from app.api.scheduler import get_scheduler_service
 from app.core.settings import Settings, get_settings
 from app.services.profile_store import FileProfileStore, ProfileStoreError, UserProfile
+from app.services.scheduler import SchedulerConfig, SchedulerConfigError, SchedulerService
 
 router = APIRouter()
 
@@ -55,6 +57,7 @@ def get_profile(
 def update_profile(
     request: ProfileUpdateRequest,
     store: FileProfileStore = Depends(get_profile_store),
+    scheduler: SchedulerService | None = Depends(get_scheduler_service),
 ) -> ProfileResponse:
     try:
         store.save(UserProfile(
@@ -67,5 +70,17 @@ def update_profile(
             success=False,
             error=error_response("PROFILE_NOT_FOUND", str(exc)),
         )
+
+    if scheduler is not None:
+        try:
+            current = scheduler.state.config
+            scheduler.update_config(SchedulerConfig(
+                enabled=current.enabled,
+                time=request.digest_time,
+                timezone=current.timezone,
+                sources=current.sources,
+            ))
+        except SchedulerConfigError:
+            pass
 
     return ProfileResponse(success=True, data={"message": "Profile updated"})

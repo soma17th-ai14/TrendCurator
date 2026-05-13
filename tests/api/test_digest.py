@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from fastapi.testclient import TestClient
 
 import app.api.digest as digest_api
-from app.api.digest import get_digest_store
+from app.api.digest import get_digest_store, get_profile_store
 from app.api.documents import get_retriever
 from app.core.models import DigestGenerationRunResult, DigestItem, SolarProDigestGenerationResult
 from app.main import app
@@ -60,6 +60,14 @@ class FakeGroundednessChecker:
         return SimpleNamespace(score=0.91)
 
 
+class FakeProfileStore:
+    def __init__(self, profile=None) -> None:
+        self._profile = profile
+
+    def load(self):
+        return self._profile
+
+
 def _run_result(digest_date: date = date(2026, 5, 6)) -> DigestGenerationRunResult:
     digest_id = f"digest_{digest_date:%Y%m%d}"
     digest = SolarProDigestGenerationResult(
@@ -101,6 +109,7 @@ def test_generate_digest_saves_run_result(monkeypatch):
     monkeypatch.setattr(digest_api, "GroundednessChecker", lambda: FakeGroundednessChecker())
     app.dependency_overrides[get_retriever] = lambda: FakeRetriever()
     app.dependency_overrides[get_digest_store] = lambda: store
+    app.dependency_overrides[get_profile_store] = lambda: FakeProfileStore()
     try:
         client = TestClient(app)
         response = client.post(
@@ -114,6 +123,43 @@ def test_generate_digest_saves_run_result(monkeypatch):
     assert response.json()["success"] is True
     assert store.saved
     assert store.saved[0].digest_id == "digest_20260506"
+
+
+def test_generate_digest_uses_profile_keywords_when_profile_based(monkeypatch):
+    store = FakeDigestStore()
+    captured_requests = []
+
+    original_retrieve = digest_api.DailyDigestRetriever
+
+    class CapturingDailyDigestRetriever:
+        def __init__(self, retriever):
+            self._inner = original_retrieve(retriever)
+
+        def retrieve(self, request):
+            captured_requests.append(request)
+            return self._inner.retrieve(request)
+
+    monkeypatch.setattr(digest_api, "GroundednessChecker", lambda: FakeGroundednessChecker())
+    monkeypatch.setattr(digest_api, "DailyDigestRetriever", CapturingDailyDigestRetriever)
+
+    from app.services.profile_store import UserProfile
+    profile = UserProfile(keywords=["AgentBench", "ToolUse"], language="en", digest_time="09:00")
+
+    app.dependency_overrides[get_retriever] = lambda: FakeRetriever()
+    app.dependency_overrides[get_digest_store] = lambda: store
+    app.dependency_overrides[get_profile_store] = lambda: FakeProfileStore(profile)
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/digest/generate",
+            json={"date": "2026-05-06", "top_k": 1, "profile_based": True},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert len(captured_requests) == 1
+    assert captured_requests[0].keywords == ["AgentBench", "ToolUse"]
 
 
 def test_get_digest_returns_saved_digest_contract():
