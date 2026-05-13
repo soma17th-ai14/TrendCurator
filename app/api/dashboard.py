@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from app.api.responses import ErrorResponse, error_response
 from app.core.chroma_client import ChromaClient
 from app.core.settings import Settings, get_settings
+from app.services.collection_status_store import CollectionStatusStore
 from app.services.digest_store import FileDigestStore
 
 router = APIRouter()
@@ -30,14 +31,22 @@ def get_digest_store(settings: Settings = Depends(get_settings)) -> FileDigestSt
     return FileDigestStore(settings.digest_data_path)
 
 
+def get_collection_status_store(settings: Settings = Depends(get_settings)) -> CollectionStatusStore:
+    return CollectionStatusStore(settings.collection_status_path)
+
+
 @router.get("/dashboard", response_model=DashboardResponse)
 def get_dashboard(
     chroma: ChromaClient = Depends(get_chroma),
     digest_store: FileDigestStore = Depends(get_digest_store),
+    status_store: CollectionStatusStore = Depends(get_collection_status_store),
 ) -> DashboardResponse:
     try:
-        document_count = chroma.count()
+        source_stats = chroma.count_by_source()
+        top_tags = chroma.top_keywords(top_k=10)
         latest_digest = _latest_digest_data(digest_store)
+        last_collected_at = status_store.load_collected_at()
+        total_count = sum(source_stats.values())
     except Exception as exc:
         return DashboardResponse(
             success=False,
@@ -49,15 +58,15 @@ def get_dashboard(
         data={
             "latest_digest": latest_digest,
             "collection_status": {
-                "last_collected_at": None,
-                "collected_count": document_count,
-                "filtered_count": document_count,
+                "last_collected_at": last_collected_at,
+                "collected_count": total_count,
+                "filtered_count": total_count,
             },
             "source_stats": {
-                "huggingface": None,
-                "hackernews": None,
+                "huggingface": source_stats.get("huggingface", 0),
+                "hackernews": source_stats.get("hackernews", 0),
             },
-            "top_tags": [],
+            "top_tags": top_tags,
             "generated_at": datetime.now(timezone.utc)
             .isoformat(timespec="seconds")
             .replace("+00:00", "Z"),
