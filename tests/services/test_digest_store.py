@@ -84,6 +84,32 @@ def test_file_digest_store_filters_by_date_range(tmp_path):
     assert [result.digest_id for result in results] == ["digest_20260506"]
 
 
+def test_file_digest_store_loads_only_latest_digest_for_latest(tmp_path, monkeypatch):
+    store = FileDigestStore(tmp_path)
+    store.save(_run_result(date(2026, 5, 5)))
+    store.save(_run_result(date(2026, 5, 7)))
+    store.save(_run_result(date(2026, 5, 6)))
+    loaded_paths = []
+    original_load = store._load
+
+    def load_once(path):
+        loaded_paths.append(path.name)
+        return original_load(path)
+
+    monkeypatch.setattr(store, "_load", load_once)
+
+    result = store.latest()
+
+    assert result.digest_id == "digest_20260507"
+    assert loaded_paths == ["digest_20260507.json"]
+
+
+def test_file_digest_store_latest_returns_none_when_empty(tmp_path):
+    store = FileDigestStore(tmp_path)
+
+    assert store.latest() is None
+
+
 def test_file_digest_store_rejects_invalid_digest_id(tmp_path):
     store = FileDigestStore(tmp_path)
 
