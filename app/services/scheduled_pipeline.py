@@ -29,7 +29,7 @@ from app.services.groundedness import GroundednessCheckRequest, GroundednessChec
 from app.services.ingestion import IngestionService
 from app.services.normalizer import normalize_documents
 from app.services.profile_store import FileProfileStore
-from app.services.scheduler import SchedulerConfig
+from app.services.scheduler import SchedulerConfig, effective_digest_date
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +157,37 @@ def run_pipeline(run_date: date, config: SchedulerConfig) -> str | None:
     except Exception as exc:
         logger.error("스케줄러: 다이제스트 생성 실패 (%s)", exc)
         raise PipelineRunError(f"다이제스트 생성 실패: {exc}") from exc
+
+
+def run_startup_digest(config: SchedulerConfig) -> str | None:
+    """앱 부팅 직후 효력 일자 기준 다이제스트가 없으면 즉시 생성합니다.
+
+    스케줄러 루프와 별개의 진입점으로, 효력 일자(``effective_digest_date``) 기준 다이제스트가
+    이미 존재하면 아무 일도 하지 않고 ``None`` 을 반환합니다. 없으면 ``run_pipeline`` 을
+    동기 호출하고 생성된 ``digest_id`` 를 반환합니다.
+
+    실패 시 ``PipelineRunError`` 를 raise 하지 않고 ``None`` 을 반환합니다. 부팅 자동 실행은
+    스케줄러의 일일 마크업과 분리되어 있어, 실패하더라도 정상 스케줄 사이클에서 재시도되기
+    때문입니다.
+    """
+    target_date = effective_digest_date(config)
+    digest_id = f"digest_{target_date:%Y%m%d}"
+
+    try:
+        settings: Settings = get_settings()
+        store = FileDigestStore(settings.digest_data_path)
+        if store.get(digest_id) is not None:
+            logger.info("부팅 자동 실행: 효력 일자 다이제스트가 이미 존재합니다 — %s", digest_id)
+            return None
+    except Exception as exc:
+        logger.warning("부팅 자동 실행: 기존 다이제스트 조회 실패 — %s", exc)
+
+    logger.info("부팅 자동 실행: 효력 일자 다이제스트 생성 시작 — %s", target_date)
+    try:
+        return run_pipeline(target_date, config)
+    except PipelineRunError as exc:
+        logger.warning("부팅 자동 실행: 다이제스트 생성 실패 (%s) — 정상 스케줄 사이클에서 재시도됩니다.", exc)
+        return None
 
 
 def _fallback_digest(request):

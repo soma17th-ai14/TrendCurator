@@ -185,3 +185,29 @@ def ensure_timezone(value: datetime, timezone: tzinfo) -> datetime:
 
 def create_default_scheduler() -> SchedulerService:
     return SchedulerService(SchedulerState(config=SchedulerConfig()))
+
+
+def effective_digest_date(
+    config: SchedulerConfig,
+    now: Optional[datetime] = None,
+) -> date:
+    """발행 시각 기준 "오늘의 다이제스트" 효력 일자를 반환합니다.
+
+    HuggingFace Daily Papers 등 외부 소스는 새벽 시점에 당일 데이터가 아직 게시되지 않아
+    수집이 실패하는 경우가 있습니다. 이를 피하기 위해, ``config.scheduled_time`` 이전에는
+    어제 일자를, 이후에는 오늘 일자를 효력 일자로 사용합니다.
+
+    예) ``time="09:00"`` 일 때
+        - 00:00 ~ 08:59 → 어제 일자
+        - 09:00 이후    → 오늘 일자
+
+    Why: 사용자가 "오늘의 다이제스트"를 확인할 때 항상 가장 최근의 완성된 다이제스트가
+    보이도록 일관된 기준을 제공한다.
+    """
+    local_now = ensure_timezone(
+        now or datetime.now(tz=config.zoneinfo),
+        config.zoneinfo,
+    )
+    if local_now.time() < config.scheduled_time:
+        return local_now.date() - timedelta(days=1)
+    return local_now.date()

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -16,6 +18,27 @@ from app.api.query import router as query_router
 from app.api.profile import router as profile_router
 from app.api.scheduler import router as scheduler_router
 
+logger = logging.getLogger(__name__)
+
+
+def _spawn_startup_digest_thread(config) -> threading.Thread:
+    """부팅 직후 효력 일자 기준 다이제스트를 백그라운드 스레드에서 생성합니다.
+
+    ``run_pipeline`` 은 LLM 호출과 외부 수집을 포함해 수십 초~수 분이 걸릴 수 있으므로,
+    ASGI 이벤트 루프를 막지 않도록 별도 데몬 스레드로 실행합니다.
+    """
+    from app.services.scheduled_pipeline import run_startup_digest
+
+    def _runner() -> None:
+        try:
+            run_startup_digest(config)
+        except Exception as exc:  # pragma: no cover - run_startup_digest 내부에서 처리됨
+            logger.warning("부팅 자동 실행 스레드 오류: %s", exc)
+
+    thread = threading.Thread(target=_runner, daemon=True, name="startup-digest")
+    thread.start()
+    return thread
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,6 +49,8 @@ async def lifespan(app: FastAPI):
         scheduler = get_scheduler_service()
         if scheduler is not None:
             ensure_loop_running(scheduler)
+            # 효력 일자 기준 다이제스트가 없으면 즉시 생성 (스케줄 시각을 기다리지 않음).
+            _spawn_startup_digest_thread(scheduler.state.config)
     try:
         yield
     finally:
