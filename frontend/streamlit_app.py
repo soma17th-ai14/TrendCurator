@@ -20,35 +20,322 @@ st.set_page_config(
 )
 
 st.markdown(
+    '<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">',
+    unsafe_allow_html=True,
+)
+
+_DARK_VARS = """
+    :root {
+        --bg-base:       #0F0E0C;
+        --bg-surface:    #161411;
+        --bg-raised:     #1E1C18;
+        --bg-input:      #1A1814;
+        --border:        #2E2B24;
+        --border-soft:   #242118;
+        --accent:        #C8821A;
+        --accent-muted:  rgba(200, 130, 26, 0.10);
+        --accent-border: rgba(200, 130, 26, 0.28);
+        --text-primary:  #EDE8DC;
+        --text-secondary:#9B9080;
+        --text-muted:    #5C5548;
+        --success-bg:    rgba(50, 100, 65, 0.18);
+        --success-border:#3D7A50;
+        --error-bg:      rgba(120, 50, 50, 0.18);
+        --error-border:  #8B3A3A;
+    }
+"""
+
+_LIGHT_VARS = """
+    :root {
+        --bg-base:       #FAFAF8;
+        --bg-surface:    #F2EDE6;
+        --bg-raised:     #EAE4DB;
+        --bg-input:      #F2EDE6;
+        --border:        #B8AFA3;
+        --border-soft:   #CCC5BB;
+        --accent:        #A85F10;
+        --accent-muted:  rgba(168, 95, 16, 0.08);
+        --accent-border: rgba(168, 95, 16, 0.22);
+        --text-primary:  #1C1A17;
+        --text-secondary:#6B6358;
+        --text-muted:    #9C9088;
+        --success-bg:    rgba(40, 90, 55, 0.10);
+        --success-border:#2D6B3E;
+        --error-bg:      rgba(110, 40, 40, 0.10);
+        --error-border:  #7A2E2E;
+    }
+"""
+
+_is_light = st.session_state.get("theme") == "light"
+_theme_vars = _LIGHT_VARS if _is_light else _DARK_VARS
+
+st.markdown(f"<style>{_theme_vars}</style>", unsafe_allow_html=True)
+
+st.markdown(
     """
     <style>
-    header[data-testid="stHeader"] { display: none !important; }
-    [data-testid="stStatusWidget"] { display: none !important; }
-    .block-container { padding-top: 1.5rem !important; padding-bottom: 4rem !important; }
 
-    /* 사이드바 너비 고정 */
+    /* ── Base ── */
+    html, body, .stApp {
+        background-color: var(--bg-base) !important;
+        color: var(--text-primary) !important;
+        font-family: 'Source Serif 4', Georgia, serif !important;
+    }
+
+    /* ── System UI 숨김 ── */
+    header[data-testid="stHeader"]  { display: none !important; }
+    [data-testid="stStatusWidget"]  { display: none !important; }
+    .stApp { opacity: 1 !important; }
+
+    /* ── Layout ── */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 4rem !important;
+        background-color: var(--bg-base) !important;
+    }
+
+    /* ── Typography ── */
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Playfair Display', Georgia, serif !important;
+        color: var(--text-primary) !important;
+        letter-spacing: -0.02em !important;
+        font-weight: 600 !important;
+    }
+    code, pre, kbd,
+    [data-testid="stMetricValue"] {
+        font-family: 'JetBrains Mono', monospace !important;
+    }
+    code {
+        background: var(--accent-muted) !important;
+        color: var(--accent) !important;
+        border: 1px solid var(--accent-border) !important;
+        padding: 0.1em 0.4em !important;
+        border-radius: 4px !important;
+    }
+    strong { color: var(--text-primary) !important; font-weight: 600 !important; }
+    .stMarkdown a { color: var(--accent) !important; text-decoration: none !important; }
+    .stMarkdown a:hover { text-decoration: underline !important; }
+    hr { border-color: var(--border) !important; margin: 1rem 0 !important; }
+
+    /* ── Sidebar ── */
     section[data-testid="stSidebar"] {
         min-width: 340px !important;
         max-width: 340px !important;
+        background-color: var(--bg-surface) !important;
+        border-right: 1px solid var(--border) !important;
+    }
+    section[data-testid="stSidebar"] > div {
+        background-color: var(--bg-surface) !important;
     }
 
-    /* bordered container 라운드 */
+    /* ── Buttons ── */
+    .stButton > button {
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 0.72rem !important;
+        letter-spacing: 0.06em !important;
+        text-transform: uppercase !important;
+        border-radius: 8px !important;
+        border: 1px solid var(--border) !important;
+        background: var(--bg-raised) !important;
+        color: var(--text-secondary) !important;
+        transition: all 0.15s ease !important;
+        white-space: nowrap !important;
+    }
+    .stButton > button:hover {
+        border-color: var(--accent-border) !important;
+        color: var(--accent) !important;
+        background: var(--accent-muted) !important;
+    }
+    .stButton > button[kind="primary"] {
+        background: var(--accent) !important;
+        color: #0F0E0C !important;
+        border-color: var(--accent) !important;
+        font-weight: 500 !important;
+    }
+    .stButton > button[kind="primary"]:hover {
+        opacity: 0.88 !important;
+        color: #0F0E0C !important;
+    }
+    [data-testid="column"] button { white-space: nowrap !important; }
+
+    /* ── Link button ── */
+    .stLinkButton a {
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 0.7rem !important;
+        letter-spacing: 0.05em !important;
+        text-transform: uppercase !important;
+        color: var(--accent) !important;
+        border: 1px solid var(--accent-border) !important;
+        border-radius: 8px !important;
+        background: transparent !important;
+    }
+    .stLinkButton a:hover {
+        background: var(--accent-muted) !important;
+        text-decoration: none !important;
+    }
+
+    /* ── Inputs ── */
+    .stTextInput input,
+    .stTextArea textarea,
+    [data-testid="stNumberInput"] input {
+        background: var(--bg-input) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 8px !important;
+        color: var(--text-primary) !important;
+        font-family: 'Source Serif 4', serif !important;
+    }
+    .stTextInput input:focus,
+    .stTextArea textarea:focus {
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 2px var(--accent-muted) !important;
+    }
+    [data-baseweb="select"] > div {
+        background: var(--bg-input) !important;
+        border-color: var(--border) !important;
+        border-radius: 8px !important;
+        color: var(--text-primary) !important;
+    }
+
+    /* ── Metrics ── */
+    [data-testid="stMetric"] {
+        background: var(--bg-raised) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 10px !important;
+        padding: 0.75rem 1rem !important;
+    }
+    [data-testid="stMetricValue"] {
+        color: var(--accent) !important;
+        font-size: 1.4rem !important;
+    }
+    [data-testid="stMetricLabel"] > div {
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 0.68rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.08em !important;
+        color: var(--text-muted) !important;
+    }
+
+    /* ── Expanders ── */
+    [data-testid="stExpander"] details {
+        border: 1px solid var(--border) !important;
+        border-radius: 10px !important;
+        background: var(--bg-raised) !important;
+    }
+    [data-testid="stExpander"] summary {
+        color: var(--text-primary) !important;
+    }
+    [data-testid="stExpander"] summary:hover {
+        color: var(--accent) !important;
+    }
+
+    /* ── Tabs ── */
+    .stTabs [data-baseweb="tab-list"] {
+        background: transparent !important;
+        border-bottom: 1px solid var(--border) !important;
+        gap: 0 !important;
+    }
+    .stTabs [data-baseweb="tab"] {
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 0.7rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.07em !important;
+        color: var(--text-muted) !important;
+        background: transparent !important;
+        padding: 0.5rem 1.2rem !important;
+    }
+    .stTabs [aria-selected="true"] {
+        color: var(--accent) !important;
+        border-bottom: 2px solid var(--accent) !important;
+    }
+
+    /* ── Alerts ── */
+    [data-testid="stAlert"] {
+        border-radius: 8px !important;
+        border-left-width: 3px !important;
+    }
+    [data-testid="stAlert"][data-baseweb="notification"] {
+        background: var(--accent-muted) !important;
+    }
+
+    /* ── Chat ── */
+    [data-testid="stChatMessage"] {
+        background: var(--bg-raised) !important;
+        border: 1px solid var(--border-soft) !important;
+        border-radius: 10px !important;
+        color: var(--text-primary) !important;
+    }
+    [data-testid="stChatMessage"] p,
+    [data-testid="stChatMessage"] span,
+    [data-testid="stChatMessage"] div {
+        color: var(--text-primary) !important;
+    }
+    [data-testid="stChatInputTextArea"] {
+        font-family: 'Source Serif 4', serif !important;
+        background: var(--bg-input) !important;
+        color: var(--text-primary) !important;
+    }
+
+    /* ── Scrollable container ── */
     [data-testid="stVerticalBlockBorderWrapper"] {
-        border-radius: 16px !important;
-        border-color: rgba(250, 250, 250, 0.15) !important;
+        border-radius: 10px !important;
+        border: 1px solid var(--border) !important;
+        background: var(--bg-surface) !important;
         overflow: hidden !important;
     }
 
-    /* 스피너: 인라인 가운데 */
+    /* ── Spinner ── */
     [data-testid="stSpinner"] {
         display: flex !important;
         justify-content: center !important;
         padding: 1rem 0 !important;
     }
+    [data-testid="stSpinner"] svg {
+        stroke: var(--accent) !important;
+        color: var(--accent) !important;
+    }
 
-    /* Streamlit 실행 중 딤 억제 */
-    .stApp { opacity: 1 !important; }
-    [data-testid="column"] button { white-space: nowrap !important; }
+    /* ── Caption ── */
+    [data-testid="stCaptionContainer"] p,
+    .stCaption {
+        font-family: 'Source Serif 4', Georgia, serif !important;
+        font-size: 0.82rem !important;
+        color: var(--text-secondary) !important;
+        letter-spacing: 0 !important;
+    }
+
+    /* ── Expander open 상태 ── */
+    [data-testid="stExpander"] details[open] summary {
+        background: var(--bg-raised) !important;
+        color: var(--text-primary) !important;
+    }
+    [data-testid="stExpander"] details[open] summary p,
+    [data-testid="stExpander"] details[open] summary span,
+    [data-testid="stExpander"] details[open] summary * {
+        color: var(--text-primary) !important;
+    }
+
+    /* ── Chat input 컨테이너 ── */
+    [data-testid="stChatInput"],
+    [data-testid="stChatInput"] > div,
+    [data-testid="stChatInputContainer"],
+    [data-testid="stChatInputContainer"] > div,
+    [data-testid="stBottom"],
+    [data-testid="stBottom"] > div {
+        background: var(--bg-surface) !important;
+    }
+    /* 채팅 입력 박스 외곽 래퍼 (Streamlit 내부 클래스, 변경 불가) */
+    .e1vtqrcf1 {
+        border: 1px solid var(--border) !important;
+        background: var(--bg-input) !important;
+    }
+    [data-testid="stChatInput"] textarea,
+    [data-testid="stChatInputTextArea"] textarea {
+        color: var(--text-primary) !important;
+    }
+    [data-testid="stChatInput"] textarea::placeholder,
+    [data-testid="stChatInputTextArea"] textarea::placeholder {
+        color: var(--text-muted) !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -86,6 +373,8 @@ if "chat_messages" not in st.session_state:
     st.session_state.chat_messages = []
 if "confirm_regen" not in st.session_state:
     st.session_state.confirm_regen = False
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"
 
 
 # ═══ 사이드바: 채팅 질의 (고정) ═══════════════════════════════════════════════
@@ -194,10 +483,15 @@ with st.sidebar:
 
 # ─── 헤더 ────────────────────────────────────────────────────────────────────
 
-title_col, spacer, settings_col = st.columns([5, 1, 2])
+title_col, spacer, theme_col, settings_col = st.columns([5, 1, 1.2, 2])
 with title_col:
     st.markdown("## 📡 TrendCurator")
     st.caption("AI Agent 분야 Daily Digest · 트렌드 질의")
+with theme_col:
+    theme_label = "☀ 라이트" if _is_light else "◑ 다크"
+    if st.button(theme_label, use_container_width=True):
+        st.session_state.theme = "dark" if _is_light else "light"
+        st.rerun()
 with settings_col:
     btn_label = "✕ 닫기" if st.session_state.show_settings else "⚙️ 설정"
     if st.button(btn_label, use_container_width=True):
