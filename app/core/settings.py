@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     chroma_data_path: str = "./chroma_data"
     chroma_collection_name: str = "trendcurator"
     digest_data_path: str = "./data/digests"
+    profile_data_path: str = "./data/profile.json"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
