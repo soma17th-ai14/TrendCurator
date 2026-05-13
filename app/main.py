@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -13,23 +14,23 @@ from app.api.groundedness import router as groundedness_router
 from app.api.pipeline import router as pipeline_router
 from app.api.query import router as query_router
 from app.api.profile import router as profile_router
-from app.api.scheduler import get_scheduler_service
 from app.api.scheduler import router as scheduler_router
-from app.services.scheduler_loop import SchedulerLoop
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    scheduler = get_scheduler_service()
-    loop = None
-    if scheduler is not None:
-        loop = SchedulerLoop(scheduler)
-        loop.start()
+    # SCHEDULER_AUTOSTART=1 환경변수가 있을 때만 시작 시 루프를 자동 시작합니다.
+    # 테스트 환경에서는 이 변수를 설정하지 않으면 루프가 시작되지 않습니다.
+    if os.getenv("SCHEDULER_AUTOSTART", "").lower() in ("1", "true", "yes"):
+        from app.api.scheduler import ensure_loop_running, get_scheduler_service
+        scheduler = get_scheduler_service()
+        if scheduler is not None:
+            ensure_loop_running(scheduler)
     try:
         yield
     finally:
-        if loop is not None:
-            loop.stop()
+        from app.api.scheduler import stop_scheduler_loop
+        stop_scheduler_loop()
 
 
 app = FastAPI(title="TrendCurator API", lifespan=lifespan)
