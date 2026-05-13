@@ -24,6 +24,7 @@ st.markdown(
     """
     <style>
     [data-testid="collapsedControl"] { display: none; }
+    [data-testid="stStatusWidget"] { display: none !important; }
     .block-container { padding-top: 1.2rem; padding-bottom: 0; }
     .tc-overlay {
         position: fixed; top: 0; left: 0;
