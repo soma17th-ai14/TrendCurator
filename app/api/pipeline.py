@@ -11,21 +11,15 @@ from pydantic import BaseModel
 from app.agents.chunker import Chunker
 from app.agents.embedder import Embedder
 from app.agents.relevance_filter import SolarMiniRelevanceFilter
-from app.collectors.hackernews import HackerNewsCollector
-from app.collectors.huggingface import HuggingFaceDailyPapersCollector
 from app.core.chroma_client import ChromaClient
 from app.core.embedding_client import EmbeddingClient
 from app.core.settings import Settings, get_settings
 from app.services.collection_status_store import CollectionStatusStore
 from app.services.ingestion import IngestionService
 from app.services.normalizer import normalize_documents
+from app.services.scheduled_pipeline import COLLECTORS, fetch_all_documents
 
 router = APIRouter()
-
-_COLLECTORS = [
-    HuggingFaceDailyPapersCollector(),
-    HackerNewsCollector(),
-]
 
 
 class CollectRequest(BaseModel):
@@ -55,31 +49,16 @@ def _build_ingestion_service(settings: Settings) -> IngestionService:
     )
 
 
-async def _fetch_all(target_date: date) -> tuple[list, list[str]]:
-    tasks = [collector.fetch(target_date) for collector in _COLLECTORS]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    documents = []
-    warnings = []
-    for collector, result in zip(_COLLECTORS, results):
-        if isinstance(result, Exception):
-            warnings.append(f"{collector.__class__.__name__} 수집 실패: {result}")
-            continue
-        for item in result:
-            documents.append(collector.normalize(item))
-    return documents, warnings
-
-
 @router.post("/pipeline/collect", response_model=CollectResponse)
 def collect(
     request: CollectRequest,
     settings: Settings = Depends(get_settings),
 ) -> CollectResponse:
     try:
-        documents, fetch_warnings = asyncio.run(_fetch_all(request.date))
+        documents, fetch_warnings = asyncio.run(fetch_all_documents(request.date))
 
         # 모든 소스가 예외로 실패한 경우에만 전체 실패 처리
-        if len(fetch_warnings) == len(_COLLECTORS):
+        if len(fetch_warnings) == len(COLLECTORS):
             return CollectResponse(
                 success=False,
                 error="모든 소스 수집 실패: " + "; ".join(fetch_warnings),

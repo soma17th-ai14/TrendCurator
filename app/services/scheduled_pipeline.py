@@ -1,10 +1,14 @@
-"""스케줄러가 호출하는 파이프라인 실행 함수."""
+"""스케줄러가 호출하는 파이프라인 실행 함수.
+
+_COLLECTORS와 fetch_all_documents는 app/api/pipeline.py에서도 임포트하여
+수집 로직이 한 곳에서만 관리되도록 합니다.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 
 from app.agents.chunker import Chunker
 from app.agents.digest_generator import SolarProDigestGenerator
@@ -29,19 +33,20 @@ from app.services.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
 
-_COLLECTORS = [
+COLLECTORS = [
     HuggingFaceDailyPapersCollector(),
     HackerNewsCollector(),
 ]
 
 
-async def _fetch_all(target_date: date) -> tuple[list, list[str]]:
-    tasks = [collector.fetch(target_date) for collector in _COLLECTORS]
+async def fetch_all_documents(target_date: date) -> tuple[list, list[str]]:
+    """모든 소스에서 문서를 병렬 수집하고 (documents, warnings) 를 반환합니다."""
+    tasks = [collector.fetch(target_date) for collector in COLLECTORS]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     documents = []
     warnings = []
-    for collector, result in zip(_COLLECTORS, results):
+    for collector, result in zip(COLLECTORS, results):
         if isinstance(result, Exception):
             warnings.append(f"{collector.__class__.__name__} 수집 실패: {result}")
             continue
@@ -56,12 +61,12 @@ def run_pipeline(run_date: date, config: SchedulerConfig) -> str | None:
 
     # 1. 수집
     try:
-        documents, warnings = asyncio.run(_fetch_all(run_date))
+        documents, warnings = asyncio.run(fetch_all_documents(run_date))
     except Exception as exc:
         logger.error("스케줄러: 수집 단계 실패 (%s)", exc)
         return None
 
-    if len(warnings) == len(_COLLECTORS):
+    if len(warnings) == len(COLLECTORS):
         logger.error("스케줄러: 모든 소스 수집 실패 — %s", "; ".join(warnings))
         return None
 
@@ -81,9 +86,8 @@ def run_pipeline(run_date: date, config: SchedulerConfig) -> str | None:
         ingested = sum(1 for r in results if not r.skipped)
         logger.info("스케줄러: %d건 수집, %d건 인제스트 완료", len(documents), ingested)
 
-        CollectionStatusStore(settings.collection_status_path).save_collected_at(
-            run_date.isoformat() + "T09:00:00Z"
-        )
+        collected_at = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+        CollectionStatusStore(settings.collection_status_path).save_collected_at(collected_at)
     except Exception as exc:
         logger.error("스케줄러: 인제스트 단계 실패 (%s)", exc)
         return None

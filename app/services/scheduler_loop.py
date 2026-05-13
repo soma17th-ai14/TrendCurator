@@ -6,7 +6,7 @@ import logging
 import threading
 import time
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Optional
 
 from app.services.scheduler import PipelineRunner, SchedulerService
 
