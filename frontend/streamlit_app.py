@@ -9,24 +9,46 @@ from typing import Any
 import requests
 import streamlit as st
 
-API_BASE_URL = os.getenv("TRENDCURATOR_API_BASE_URL", "http://localhost:8000")
+API_BASE_URL = os.getenv("TRENDCURATOR_API_BASE_URL", "http://localhost:8001")
 API_PREFIX = "/api/v1"
 
 st.set_page_config(
     page_title="TrendCurator",
     page_icon="📡",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
-# CSS: 헤더·사이드바 숨김, 여백 조정
 st.markdown(
     """
     <style>
     header[data-testid="stHeader"] { display: none !important; }
-    [data-testid="collapsedControl"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
-    .block-container { padding-top: 1.5rem; padding-bottom: 0; }
+    .block-container { padding-top: 1.5rem !important; padding-bottom: 4rem !important; }
+
+    /* 사이드바 너비 고정 */
+    section[data-testid="stSidebar"] {
+        min-width: 340px !important;
+        max-width: 340px !important;
+    }
+
+    /* bordered container 라운드 */
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        border-radius: 16px !important;
+        border-color: rgba(250, 250, 250, 0.15) !important;
+        overflow: hidden !important;
+    }
+
+    /* 스피너: 인라인 가운데 */
+    [data-testid="stSpinner"] {
+        display: flex !important;
+        justify-content: center !important;
+        padding: 1rem 0 !important;
+    }
+
+    /* Streamlit 실행 중 딤 억제 */
+    .stApp { opacity: 1 !important; }
+    [data-testid="column"] button { white-space: nowrap !important; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -56,18 +78,123 @@ def error_msg(payload: dict[str, Any], fallback: str = "오류가 발생했습�
     return str(err) if err else fallback
 
 
-
 # ─── Session state 초기화 ─────────────────────────────────────────────────────
 
 if "show_settings" not in st.session_state:
     st.session_state.show_settings = False
 if "chat_messages" not in st.session_state:
     st.session_state.chat_messages = []
+if "confirm_regen" not in st.session_state:
+    st.session_state.confirm_regen = False
+
+
+# ═══ 사이드바: 채팅 질의 (고정) ═══════════════════════════════════════════════
+
+with st.sidebar:
+    st.markdown("### 💬 질의")
+    st.caption("AI 답변은 수집된 데이터를 기반으로 생성되며, 부정확하거나 누락된 내용이 있을 수 있습니다.")
+    st.divider()
+
+    has_pending = "pending_question" in st.session_state
+
+    # 메시지 영역: 내부 스크롤 (입력창은 아래에 고정)
+    msg_area = st.container(height=520)
+    with msg_area:
+        if not st.session_state.chat_messages and not has_pending:
+            st.markdown(
+                "<div style='color:#888; font-size:0.85rem; margin-top:0.5rem;'>"
+                "예시 질문:<br><br>"
+                "• 최근 LangGraph 관련 주요 연구는?<br>"
+                "• 지난주 대비 이번 주 멀티에이전트 트렌드 변화는?<br>"
+                "• RAG와 에이전트 결합 관련 최신 동향은?"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+        for msg in st.session_state.chat_messages:
+            with st.chat_message(msg["role"]):
+                st.write(msg["content"])
+                if msg["role"] == "assistant":
+                    sources = msg.get("sources") or []
+                    if msg.get("groundedness_passed") and sources:
+                        with st.expander(f"근거 문서 {len(sources)}건"):
+                            for src in sources:
+                                title = src.get("title") or src.get("document_id") or "문서"
+                                period = src.get("period", "")
+                                period_label = f" ({period})" if period else ""
+                                if src.get("url"):
+                                    st.markdown(f"- [{title}{period_label}]({src['url']})")
+                                else:
+                                    st.markdown(f"- {title}{period_label}")
+
+        if has_pending:
+            question = st.session_state.pop("pending_question")
+
+            with st.chat_message("user"):
+                st.write(question)
+
+            with st.chat_message("assistant"):
+                with st.spinner(""):
+                    try:
+                        result = api_post(
+                            f"{API_PREFIX}/query",
+                            {"question": question, "top_k": 5, "date_to": str(date.today())},
+                            timeout=90,
+                        )
+                    except Exception as exc:
+                        result = None
+                        _exc = exc
+
+                if result is None:
+                    full_answer = f"요청 실패: {_exc}"
+                    sources: list = []
+                    groundedness = None
+                    groundedness_passed = False
+                elif result.get("success"):
+                    data = result["data"]
+                    intent = data.get("intent", "")
+                    answer = data.get("answer", "")
+                    prefix = "📊 **트렌드 비교 결과**\n\n" if intent == "trend_comparison" else ""
+                    full_answer = prefix + answer
+                    sources = data.get("sources", [])
+                    groundedness = data.get("groundedness_score")
+                    groundedness_passed = data.get("groundedness_passed", False)
+                else:
+                    full_answer = f"오류: {error_msg(result)}"
+                    sources = []
+                    groundedness = None
+                    groundedness_passed = False
+
+                st.write(full_answer)
+                if groundedness_passed and sources:
+                    with st.expander(f"근거 문서 {len(sources)}건"):
+                        for src in sources:
+                            title = src.get("title") or src.get("document_id") or "문서"
+                            period = src.get("period", "")
+                            period_label = f" ({period})" if period else ""
+                            if src.get("url"):
+                                st.markdown(f"- [{title}{period_label}]({src['url']})")
+                            else:
+                                st.markdown(f"- {title}{period_label}")
+
+            st.session_state.chat_messages.append({"role": "user", "content": question})
+            st.session_state.chat_messages.append({
+                "role": "assistant",
+                "content": full_answer,
+                "sources": sources,
+                "groundedness": groundedness,
+                "groundedness_passed": groundedness_passed,
+            })
+            st.rerun()
+
+    if question := st.chat_input("질문을 입력하세요..."):
+        st.session_state.pending_question = question
+        st.rerun()
 
 
 # ─── 헤더 ────────────────────────────────────────────────────────────────────
 
-title_col, spacer, settings_col = st.columns([6, 3, 1])
+title_col, spacer, settings_col = st.columns([5, 1, 2])
 with title_col:
     st.markdown("## 📡 TrendCurator")
     st.caption("AI Agent 분야 Daily Digest · 트렌드 질의")
@@ -209,48 +336,50 @@ if st.session_state.show_settings:
     st.divider()
 
 
-# ─── 메인 레이아웃: 3:1 ──────────────────────────────────────────────────────
+# ═══ Daily Digest (메인 영역, 자연 스크롤) ════════════════════════════════════
 
-digest_col, chat_col = st.columns([3, 1], gap="large")
+try:
+    list_payload = api_get(f"{API_PREFIX}/digest")
+    digest_list: list[dict] = list_payload.get("data") or [] if list_payload.get("success") else []
+except Exception:
+    digest_list = []
 
+dg_header, dg_ctrl = st.columns([2, 1])
+with dg_header:
+    st.markdown("### 📋 Daily Digest")
+with dg_ctrl:
+    if digest_list:
+        options = {f"{d['date']}  ({d['item_count']}건)": d["digest_id"] for d in digest_list}
+        selected_label = st.selectbox(
+            "날짜",
+            list(options.keys()),
+            label_visibility="collapsed",
+        )
+        selected_id = options[selected_label]
+    else:
+        selected_id = None
 
-# ═══ 왼쪽: Daily Digest ═══════════════════════════════════════════════════════
+today_str = str(date.today())
+has_today = any(d["date"] == today_str for d in digest_list)
+if not has_today:
+    st.info("오늘의 Digest가 아직 생성되지 않았습니다.")
 
-with digest_col:
-    # Digest 목록 로드
-    try:
-        list_payload = api_get(f"{API_PREFIX}/digest")
-        digest_list: list[dict] = list_payload.get("data") or [] if list_payload.get("success") else []
-    except Exception:
-        digest_list = []
-
-    # 헤더 + 날짜 선택
-    dg_header, dg_ctrl = st.columns([2, 1])
-    with dg_header:
-        st.markdown("### 📋 Daily Digest")
-    with dg_ctrl:
-        if digest_list:
-            options = {f"{d['date']}  ({d['item_count']}건)": d["digest_id"] for d in digest_list}
-            selected_label = st.selectbox(
-                "날짜",
-                list(options.keys()),
-                label_visibility="collapsed",
-            )
-            selected_id = options[selected_label]
+btn_col, num_col = st.columns([3, 1])
+with num_col:
+    gen_top_k = st.number_input("항목 수", min_value=1, max_value=50, value=10, step=1, label_visibility="collapsed")
+with btn_col:
+    regen_label = "오늘의 Digest 재생성" if has_today else "오늘의 Digest 생성"
+    btn_type = "secondary" if has_today else "primary"
+    if st.button(regen_label, type=btn_type, use_container_width=True):
+        if has_today:
+            st.session_state.confirm_regen = True
         else:
-            selected_id = None
-
-    # 오늘 Digest가 없으면 생성 버튼 표시
-    today_str = str(date.today())
-    has_today = any(d["date"] == today_str for d in digest_list)
-    if not has_today:
-        st.info("오늘의 Digest가 아직 생성되지 않았습니다.")
-        if st.button("오늘의 Digest 생성", type="primary"):
+            st.session_state.confirm_regen = False
             with st.spinner("Digest 생성 중입니다... (최대 2분 소요)"):
                 try:
                     result = api_post(
                         f"{API_PREFIX}/digest/generate",
-                        {"date": today_str, "profile_based": True, "top_k": 10},
+                        {"date": today_str, "profile_based": True, "top_k": int(gen_top_k)},
                         timeout=180,
                     )
                     if result.get("success"):
@@ -261,149 +390,83 @@ with digest_col:
                 except Exception as exc:
                     st.error(f"생성 요청 실패: {exc}")
 
-    # Digest 내용 표시
-    if selected_id:
-        try:
-            detail = api_get(f"{API_PREFIX}/digest/{selected_id}")
-            if detail.get("success"):
-                digest = detail["data"]
-                items = digest.get("items", [])
-
-                # 요약 메트릭
-                m1, m2, m3 = st.columns(3)
-                m1.metric("수록 항목", len(items))
-                m2.metric("Groundedness", f"{digest.get('groundedness_score', 0):.2f}")
-                m3.caption(f"기준일: {digest.get('date', '-')}")
-
-                st.markdown(f"#### {digest.get('title', 'Daily Digest')}")
-
-                for idx, item in enumerate(items, 1):
-                    source = item.get("source", "-")
-                    label = f"**{idx}.** {item['title']}  `{source}`"
-                    with st.expander(label, expanded=(idx == 1)):
-                        st.caption(f"발행일: {item.get('published_at') or '-'}")
-
-                        st.markdown("**요약**")
-                        st.write(item.get("summary") or "-")
-
-                        key_points = item.get("key_points") or []
-                        if key_points:
-                            st.markdown("**핵심 포인트**")
-                            for pt in key_points:
-                                st.markdown(f"- {pt}")
-
-                        c1, c2, c3 = st.columns(3)
-                        with c1:
-                            st.markdown("**기여**")
-                            st.write(item.get("contribution") or "명시된 근거 없음")
-                        with c2:
-                            st.markdown("**벤치마크**")
-                            st.write(item.get("benchmark") or "명시된 근거 없음")
-                        with c3:
-                            st.markdown("**비평**")
-                            st.write(item.get("critique") or "명시된 근거 없음")
-
-                        tags = item.get("tags") or []
-                        if tags:
-                            st.caption("태그: " + " · ".join(tags))
-                        if item.get("url"):
-                            st.link_button("원문 보기 →", item["url"])
-            else:
-                st.warning(error_msg(detail, "Digest를 불러올 수 없습니다."))
-        except Exception as exc:
-            st.error(f"Digest 조회 실패: {exc}")
-    elif not digest_list:
-        st.markdown("---")
-        st.markdown("수집된 Digest가 없습니다. 위 버튼으로 생성하거나 설정에서 스케줄러를 활성화하세요.")
-
-
-# ═══ 오른쪽: 채팅 ═══════════════════════════════════════════════════════════
-
-with chat_col:
-    st.markdown("### 💬 질의")
-    st.caption("트렌드 질문이나 기간 비교를 자유롭게 물어보세요.")
-
-    # 기존 메시지 표시
-    if not st.session_state.chat_messages:
-        st.markdown(
-            "<div style='color:#888; font-size:0.85rem; margin-top:1rem;'>"
-            "예시 질문:<br>"
-            "• 최근 LangGraph 관련 주요 연구는?<br>"
-            "• 지난주 대비 이번 주 멀티에이전트 트렌드 변화는?<br>"
-            "• RAG와 에이전트 결합 관련 최신 동향은?"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-    for msg in st.session_state.chat_messages:
-        with st.chat_message(msg["role"]):
-            st.write(msg["content"])
-            if msg["role"] == "assistant":
-                if msg.get("groundedness") is not None:
-                    st.caption(f"Groundedness: {msg['groundedness']:.2f}")
-                sources = msg.get("sources") or []
-                if sources:
-                    with st.expander(f"근거 문서 {len(sources)}건"):
-                        for src in sources:
-                            title = src.get("title") or src.get("document_id") or "문서"
-                            period = src.get("period", "")
-                            period_label = f" ({period})" if period else ""
-                            if src.get("url"):
-                                st.markdown(f"- [{title}{period_label}]({src['url']})")
-                            else:
-                                st.markdown(f"- {title}{period_label}")
-
-    # 새 질문 인라인 처리 (st.rerun() 없이)
-    if question := st.chat_input("질문을 입력하세요..."):
-        st.session_state.chat_messages.append({"role": "user", "content": question})
-        with st.chat_message("user"):
-            st.write(question)
-
-        with st.chat_message("assistant"):
-            with st.spinner(""):
+if st.session_state.confirm_regen:
+    st.warning(
+        "기존 오늘의 Digest를 삭제하고 재생성합니다. "
+        "재생성 시 참조 항목과 내용이 기존과 달라질 수 있습니다.",
+        icon="⚠️",
+    )
+    confirm_col, cancel_col = st.columns(2)
+    with confirm_col:
+        if st.button("재생성 확인", type="primary", use_container_width=True):
+            st.session_state.confirm_regen = False
+            with st.spinner("Digest 재생성 중입니다... (최대 2분 소요)"):
                 try:
                     result = api_post(
-                        f"{API_PREFIX}/query",
-                        {"question": question, "top_k": 5, "date_to": str(date.today())},
-                        timeout=90,
+                        f"{API_PREFIX}/digest/generate",
+                        {"date": today_str, "profile_based": True, "top_k": int(gen_top_k)},
+                        timeout=180,
                     )
+                    if result.get("success"):
+                        st.success("Digest가 재생성되었습니다.")
+                        st.rerun()
+                    else:
+                        st.error(error_msg(result, "재생성 실패"))
                 except Exception as exc:
-                    result = None
-                    _exc = exc
+                    st.error(f"재생성 요청 실패: {exc}")
+    with cancel_col:
+        if st.button("취소", use_container_width=True):
+            st.session_state.confirm_regen = False
+            st.rerun()
 
-            if result is None:
-                full_answer = f"요청 실패: {_exc}"
-                sources: list = []
-                groundedness = None
-            elif result.get("success"):
-                data = result["data"]
-                intent = data.get("intent", "")
-                answer = data.get("answer", "")
-                prefix = "📊 **트렌드 비교 결과**\n\n" if intent == "trend_comparison" else ""
-                full_answer = prefix + answer
-                sources = data.get("sources", [])
-                groundedness = data.get("groundedness_score")
-            else:
-                full_answer = f"오류: {error_msg(result)}"
-                sources = []
-                groundedness = None
+if selected_id:
+    try:
+        detail = api_get(f"{API_PREFIX}/digest/{selected_id}")
+        if detail.get("success"):
+            digest = detail["data"]
+            items = digest.get("items", [])
 
-            st.write(full_answer)
-            if groundedness is not None:
-                st.caption(f"Groundedness: {groundedness:.2f}")
-            if sources:
-                with st.expander(f"근거 문서 {len(sources)}건"):
-                    for src in sources:
-                        title = src.get("title") or src.get("document_id") or "문서"
-                        period = src.get("period", "")
-                        period_label = f" ({period})" if period else ""
-                        if src.get("url"):
-                            st.markdown(f"- [{title}{period_label}]({src['url']})")
-                        else:
-                            st.markdown(f"- {title}{period_label}")
+            m1, m2 = st.columns(2)
+            m1.metric("수록 항목", len(items))
+            m2.caption(f"기준일: {digest.get('date', '-')}")
 
-        st.session_state.chat_messages.append({
-            "role": "assistant",
-            "content": full_answer,
-            "sources": sources,
-            "groundedness": groundedness,
-        })
+            st.markdown(f"#### {digest.get('title', 'Daily Digest')}")
+
+            for idx, item in enumerate(items, 1):
+                source = item.get("source", "-")
+                label = f"**{idx}.** {item['title']}  `{source}`"
+                with st.expander(label, expanded=(idx == 1)):
+                    st.caption(f"발행일: {item.get('published_at') or '-'}")
+
+                    st.markdown("**요약**")
+                    st.write(item.get("summary") or "-")
+
+                    key_points = item.get("key_points") or []
+                    if key_points:
+                        st.markdown("**핵심 포인트**")
+                        for pt in key_points:
+                            st.markdown(f"- {pt}")
+
+                    c1, c2, c3 = st.columns(3)
+                    with c1:
+                        st.markdown("**기여**")
+                        st.write(item.get("contribution") or "명시된 근거 없음")
+                    with c2:
+                        st.markdown("**벤치마크**")
+                        st.write(item.get("benchmark") or "명시된 근거 없음")
+                    with c3:
+                        st.markdown("**비평**")
+                        st.write(item.get("critique") or "명시된 근거 없음")
+
+                    tags = item.get("tags") or []
+                    if tags:
+                        st.caption("태그: " + " · ".join(tags))
+                    if item.get("url"):
+                        st.link_button("원문 보기 →", item["url"])
+        else:
+            st.warning(error_msg(detail, "Digest를 불러올 수 없습니다."))
+    except Exception as exc:
+        st.error(f"Digest 조회 실패: {exc}")
+elif not digest_list:
+    st.markdown("---")
+    st.markdown("수집된 Digest가 없습니다. 위 버튼으로 생성하거나 설정에서 스케줄러를 확인하세요.")
