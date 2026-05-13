@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from app.agents.chunker import Chunker
 from app.agents.embedder import Embedder
-from app.agents.relevance_filter import SolarMiniRelevanceFilter
+from app.agents.solar_relevance_filter import build_solar_mini_relevance_filter
 from app.core.chroma_client import ChromaClient
 from app.core.embedding_client import EmbeddingClient
 from app.core.settings import Settings, get_settings
@@ -66,7 +66,7 @@ def collect(
 
         normalized = normalize_documents(documents)
 
-        relevance_filter = SolarMiniRelevanceFilter()
+        relevance_filter = build_solar_mini_relevance_filter(settings)
         decisions = relevance_filter.filter(normalized)
 
         ingestion_service = _build_ingestion_service(settings)

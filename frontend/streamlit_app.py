@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from datetime import date
 import os
 from typing import Any
@@ -9,7 +10,7 @@ from typing import Any
 import requests
 import streamlit as st
 
-API_BASE_URL = os.getenv("TRENDCURATOR_API_BASE_URL", "http://localhost:8001")
+API_BASE_URL = os.getenv("TRENDCURATOR_API_BASE_URL", "http://localhost:8000")
 API_PREFIX = "/api/v1"
 
 st.set_page_config(
@@ -293,6 +294,14 @@ st.markdown(
         stroke: var(--accent) !important;
         color: var(--accent) !important;
     }
+    [data-testid="stSpinner"] p,
+    [data-testid="stSpinner"] span,
+    [data-testid="stSpinner"] div {
+        color: var(--accent) !important;
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 0.78rem !important;
+        letter-spacing: 0 !important;
+    }
 
     /* ── Caption ── */
     [data-testid="stCaptionContainer"] p,
@@ -344,16 +353,25 @@ st.markdown(
 
 # ─── API helpers ─────────────────────────────────────────────────────────────
 
-def api_get(path: str, timeout: int = 20) -> dict[str, Any]:
-    r = requests.get(f"{API_BASE_URL}{path}", timeout=timeout)
-    r.raise_for_status()
-    return r.json()
+def api_get(path: str, timeout: int = 20, loading: str | None = None) -> dict[str, Any]:
+    context = st.spinner(loading) if loading else nullcontext()
+    with context:
+        r = requests.get(f"{API_BASE_URL}{path}", timeout=timeout)
+        r.raise_for_status()
+        return r.json()
 
 
-def api_post(path: str, payload: dict[str, Any], timeout: int = 60) -> dict[str, Any]:
-    r = requests.post(f"{API_BASE_URL}{path}", json=payload, timeout=timeout)
-    r.raise_for_status()
-    return r.json()
+def api_post(
+    path: str,
+    payload: dict[str, Any],
+    timeout: int = 60,
+    loading: str | None = None,
+) -> dict[str, Any]:
+    context = st.spinner(loading) if loading else nullcontext()
+    with context:
+        r = requests.post(f"{API_BASE_URL}{path}", json=payload, timeout=timeout)
+        r.raise_for_status()
+        return r.json()
 
 
 def error_msg(payload: dict[str, Any], fallback: str = "오류가 발생했습니다.") -> str:
@@ -423,7 +441,7 @@ with st.sidebar:
                 st.write(question)
 
             with st.chat_message("assistant"):
-                with st.spinner(""):
+                with st.spinner("답변을 생성하는 중입니다..."):
                     result = None
                     _exc: Exception | None = None
                     try:
@@ -508,7 +526,7 @@ if st.session_state.show_settings:
 
         with profile_tab:
             try:
-                prof_payload = api_get(f"{API_PREFIX}/profile")
+                prof_payload = api_get(f"{API_PREFIX}/profile", loading="프로필을 불러오는 중입니다...")
                 prof = prof_payload.get("data") or {} if prof_payload.get("success") else {}
             except Exception:
                 prof = {}
@@ -528,11 +546,15 @@ if st.session_state.show_settings:
                 if st.form_submit_button("저장", type="primary"):
                     keywords = [k.strip() for k in keywords_raw.split(",") if k.strip()]
                     try:
-                        result = api_post(f"{API_PREFIX}/profile", {
-                            "keywords": keywords,
-                            "language": language,
-                            "digest_time": digest_time,
-                        })
+                        result = api_post(
+                            f"{API_PREFIX}/profile",
+                            {
+                                "keywords": keywords,
+                                "language": language,
+                                "digest_time": digest_time,
+                            },
+                            loading="프로필을 저장하는 중입니다...",
+                        )
                         if result.get("success"):
                             st.success("프로필이 저장되었습니다.")
                         else:
@@ -542,7 +564,7 @@ if st.session_state.show_settings:
 
         with scheduler_tab:
             try:
-                sched_payload = api_get(f"{API_PREFIX}/scheduler")
+                sched_payload = api_get(f"{API_PREFIX}/scheduler", loading="스케줄러 설정을 불러오는 중입니다...")
                 sched = sched_payload.get("data") or {} if sched_payload.get("success") else {}
             except Exception:
                 sched = {}
@@ -561,12 +583,16 @@ if st.session_state.show_settings:
                 )
                 if st.form_submit_button("저장", type="primary"):
                     try:
-                        result = api_post(f"{API_PREFIX}/scheduler", {
-                            "enabled": enabled,
-                            "time": sched_time,
-                            "timezone": timezone,
-                            "sources": sources,
-                        })
+                        result = api_post(
+                            f"{API_PREFIX}/scheduler",
+                            {
+                                "enabled": enabled,
+                                "time": sched_time,
+                                "timezone": timezone,
+                                "sources": sources,
+                            },
+                            loading="스케줄러 설정을 저장하는 중입니다...",
+                        )
                         if result.get("success"):
                             next_run = result["data"].get("next_run_at", "-")
                             st.success(f"저장됐습니다. 다음 실행: {next_run}")
@@ -587,6 +613,7 @@ if st.session_state.show_settings:
                                 f"{API_PREFIX}/pipeline/collect",
                                 {"date": collect_date.isoformat()},
                                 timeout=600,
+                                loading="수집 파이프라인을 실행하는 중입니다...",
                             )
                             if result.get("success"):
                                 d = result["data"]
@@ -605,7 +632,7 @@ if st.session_state.show_settings:
             with right:
                 st.markdown("**시스템 현황**")
                 try:
-                    dash = api_get(f"{API_PREFIX}/dashboard")
+                    dash = api_get(f"{API_PREFIX}/dashboard", loading="현황을 조회하는 중입니다...")
                     if dash.get("success"):
                         d = dash["data"]
                         cs = d.get("collection_status", {})
@@ -623,7 +650,7 @@ if st.session_state.show_settings:
 
                 if st.button("Backend 연결 확인", use_container_width=True):
                     try:
-                        status = api_get("/health")["status"]
+                        status = api_get("/health", loading="Backend 연결을 확인하는 중입니다...")["status"]
                         st.success(f"정상 ({status})")
                     except Exception as exc:
                         st.error(f"연결 실패: {exc}")
@@ -634,7 +661,7 @@ if st.session_state.show_settings:
 # ═══ Daily Digest (메인 영역, 자연 스크롤) ════════════════════════════════════
 
 try:
-    list_payload = api_get(f"{API_PREFIX}/digest")
+    list_payload = api_get(f"{API_PREFIX}/digest", loading="Digest 목록을 불러오는 중입니다...")
     digest_list: list[dict] = list_payload.get("data") or [] if list_payload.get("success") else []
 except Exception:
     digest_list = []
@@ -658,7 +685,7 @@ with dg_ctrl:
 # 외부 소스(HuggingFace 등)가 새벽엔 당일 데이터를 아직 공개하지 않아 빈 결과를 주는 점을
 # 우회하기 위해, 백엔드 대시보드 API가 계산해 준 effective_date 를 그대로 사용한다.
 try:
-    dash_payload = api_get(f"{API_PREFIX}/dashboard")
+    dash_payload = api_get(f"{API_PREFIX}/dashboard", loading="대시보드 현황을 불러오는 중입니다...")
     dash_data = dash_payload.get("data") or {} if dash_payload.get("success") else {}
     today_str = dash_data.get("effective_date") or str(date.today())
 except Exception:
@@ -685,6 +712,7 @@ with btn_col:
                         f"{API_PREFIX}/digest/generate",
                         {"date": today_str, "profile_based": True, "top_k": int(gen_top_k)},
                         timeout=180,
+                        loading="Digest를 생성하는 중입니다...",
                     )
                     if result.get("success"):
                         st.success("Digest가 생성되었습니다.")
@@ -710,6 +738,7 @@ if st.session_state.confirm_regen:
                         f"{API_PREFIX}/digest/generate",
                         {"date": today_str, "profile_based": True, "top_k": int(gen_top_k)},
                         timeout=180,
+                        loading="Digest를 재생성하는 중입니다...",
                     )
                     if result.get("success"):
                         st.success("Digest가 재생성되었습니다.")
@@ -725,7 +754,7 @@ if st.session_state.confirm_regen:
 
 if selected_id:
     try:
-        detail = api_get(f"{API_PREFIX}/digest/{selected_id}")
+        detail = api_get(f"{API_PREFIX}/digest/{selected_id}", loading="Digest 상세를 불러오는 중입니다...")
         if detail.get("success"):
             digest = detail["data"]
             items = digest.get("items", [])

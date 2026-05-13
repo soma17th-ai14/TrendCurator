@@ -181,6 +181,7 @@ docker compose up --build
 - Streamlit: `http://localhost:8501`
 
 Set `SOLAR_API_KEY` before running when real Solar generation or embedding calls are needed. Without the key, the UI and fallback groundedness/demo paths remain available.
+수집 파이프라인의 관련성 필터는 `SOLAR_API_KEY`가 설정된 경우 Solar Mini API로 문서 관련성을 판정합니다. 키가 없거나 Solar Mini 호출이 실패하면 기존 로컬 키워드 기반 판정으로 fallback합니다.
 
 ### Added API surface
 
