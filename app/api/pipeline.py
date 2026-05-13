@@ -16,6 +16,7 @@ from app.collectors.huggingface import HuggingFaceDailyPapersCollector
 from app.core.chroma_client import ChromaClient
 from app.core.embedding_client import EmbeddingClient
 from app.core.settings import Settings, get_settings
+from app.services.collection_status_store import CollectionStatusStore
 from app.services.ingestion import IngestionService
 from app.services.normalizer import normalize_documents
 
@@ -97,6 +98,12 @@ def collect(
     except Exception as exc:
         return CollectResponse(success=False, error=str(exc))
 
+    collected_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    try:
+        CollectionStatusStore(settings.collection_status_path).save_collected_at(collected_at)
+    except Exception:
+        pass
+
     return CollectResponse(
         success=True,
         data=CollectData(
@@ -104,7 +111,7 @@ def collect(
             filtered_count=len(decisions),
             ingested_count=ingested,
             skipped_count=skipped,
-            collected_at=datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            collected_at=collected_at,
             warnings=fetch_warnings,
         ),
     )

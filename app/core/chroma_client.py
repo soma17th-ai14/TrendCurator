@@ -104,6 +104,35 @@ class ChromaClient:
     def count(self) -> int:
         return self._collection.count()
 
+    def count_by_source(self) -> dict[str, int]:
+        """source별 고유 document 수를 반환한다."""
+        results = self._collection.get(include=["metadatas"])
+        metadatas = results.get("metadatas") or []
+        seen: dict[str, set[str]] = {}
+        for meta in metadatas:
+            source = meta.get("source", "")
+            doc_id = meta.get("document_id", "")
+            if source and doc_id:
+                seen.setdefault(source, set()).add(doc_id)
+        return {source: len(doc_ids) for source, doc_ids in seen.items()}
+
+    def top_keywords(self, top_k: int = 10) -> list[dict]:
+        """matched_keywords 빈도 기준 상위 키워드 목록을 반환한다."""
+        results = self._collection.get(include=["metadatas"])
+        metadatas = results.get("metadatas") or []
+        seen_docs: set[str] = set()
+        counts: dict[str, int] = {}
+        for meta in metadatas:
+            doc_id = meta.get("document_id", "")
+            if not doc_id or doc_id in seen_docs:
+                continue
+            seen_docs.add(doc_id)
+            keywords_raw = meta.get("matched_keywords", "")
+            for kw in (k.strip() for k in keywords_raw.split(",") if k.strip()):
+                counts[kw] = counts.get(kw, 0) + 1
+        sorted_kws = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+        return [{"tag": kw, "count": cnt} for kw, cnt in sorted_kws[:top_k]]
+
     def get_texts_by_document_ids(self, document_ids: list[str]) -> list[str]:
         if not document_ids:
             return []
