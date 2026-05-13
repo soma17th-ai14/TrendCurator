@@ -17,15 +17,15 @@ class FakeChroma:
 
 
 class FakeDigestStore:
-    def __init__(self, results=None) -> None:
-        self._results = results or []
+    def __init__(self, latest_digest=None) -> None:
+        self._latest_digest = latest_digest
 
-    def list(self):
-        return self._results
+    def latest(self):
+        return self._latest_digest
 
 
 class FailingDigestStore:
-    def list(self):
+    def latest(self):
         raise DigestStoreError("broken digest store")
 
 
@@ -39,10 +39,9 @@ def _digest(digest_id: str, digest_date: date, item_count: int):
 
 def test_dashboard_returns_latest_digest_summary():
     app.dependency_overrides[get_chroma] = lambda: FakeChroma(count=7)
-    app.dependency_overrides[get_digest_store] = lambda: FakeDigestStore([
-        _digest("digest_20260507", date(2026, 5, 7), 4),
-        _digest("digest_20260506", date(2026, 5, 6), 3),
-    ])
+    app.dependency_overrides[get_digest_store] = lambda: FakeDigestStore(
+        _digest("digest_20260507", date(2026, 5, 7), 4)
+    )
     try:
         client = TestClient(app)
         response = client.get("/api/v1/dashboard")

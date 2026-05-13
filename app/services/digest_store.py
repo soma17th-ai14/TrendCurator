@@ -73,6 +73,20 @@ class FileDigestStore:
 
         return sorted(filtered, key=lambda item: (item.date, item.digest_id), reverse=True)
 
+    def latest(self) -> DigestGenerationRunResult | None:
+        if not self._root.exists():
+            return None
+
+        latest_path = max(
+            self._root.glob("digest_*.json"),
+            key=lambda path: path.stem,
+            default=None,
+        )
+        if latest_path is None:
+            return None
+
+        return self._load(latest_path)
+
     def _path_for(self, digest_id: str) -> Path:
         if not digest_id.startswith("digest_") or any(char in digest_id for char in "\\/:"):
             raise DigestStoreError(f"유효하지 않은 digest_id: {digest_id}")

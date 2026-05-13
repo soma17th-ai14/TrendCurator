@@ -66,7 +66,7 @@ def get_dashboard(
 
 
 def _latest_digest_data(store: FileDigestStore) -> dict[str, Any] | None:
-    latest = next(iter(store.list()), None)
+    latest = store.latest()
     if latest is None:
         return None
 
