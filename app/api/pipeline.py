@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from app.agents.chunker import Chunker
 from app.agents.embedder import Embedder
 from app.agents.relevance_filter import SolarMiniRelevanceFilter
+from app.api.responses import ErrorResponse, error_response
 from app.collectors.hackernews import HackerNewsCollector
 from app.collectors.huggingface import HuggingFaceDailyPapersCollector
 from app.core.chroma_client import ChromaClient
@@ -43,7 +44,7 @@ class CollectData(BaseModel):
 class CollectResponse(BaseModel):
     success: bool
     data: CollectData | None = None
-    error: str | None = None
+    error: ErrorResponse | None = None
 
 
 def _build_ingestion_service(settings: Settings) -> IngestionService:
@@ -80,7 +81,10 @@ def collect(
         if not documents and fetch_warnings:
             return CollectResponse(
                 success=False,
-                error="모든 소스 수집 실패: " + "; ".join(fetch_warnings),
+                error=error_response(
+                    "COLLECTION_FAILED",
+                    "모든 소스 수집 실패: " + "; ".join(fetch_warnings),
+                ),
             )
 
         normalized = normalize_documents(documents)
@@ -95,7 +99,10 @@ def collect(
         skipped = sum(1 for r in results if r.skipped)
 
     except Exception as exc:
-        return CollectResponse(success=False, error=str(exc))
+        return CollectResponse(
+            success=False,
+            error=error_response("PIPELINE_COLLECT_FAILED", str(exc)),
+        )
 
     return CollectResponse(
         success=True,

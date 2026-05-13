@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from app.agents.digest_generator import SolarProDigestGenerator
 from app.agents.retriever import Retriever
 from app.api.documents import get_retriever
+from app.api.responses import ErrorResponse
 from app.core.models import DailyDigestRetrievalRequest
 from app.core.settings import get_solar_settings
 from app.services.digest_generation_adapter import DigestGenerationAdapter
@@ -30,7 +31,7 @@ class DigestGenerateRequest(BaseModel):
 class DigestGenerateResponse(BaseModel):
     success: bool
     data: dict[str, Any] | None = None
-    error: str | None = None
+    error: ErrorResponse | None = None
 
 
 @router.post("/digest/generate", response_model=DigestGenerateResponse)

@@ -1,9 +1,10 @@
-"""Streamlit UI for TrendCurator."""
+"""TrendCurator 사용자용 Streamlit UI."""
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 import os
+from typing import Any
 
 import requests
 import streamlit as st
@@ -12,185 +13,313 @@ import streamlit as st
 API_BASE_URL = os.getenv("TRENDCURATOR_API_BASE_URL", "http://localhost:8000")
 API_PREFIX = "/api/v1"
 
+CATEGORY_OPTIONS = {
+    "AI Agent": "agent",
+    "LangGraph": "langgraph",
+    "RAG": "rag",
+    "LLM": "llm",
+    "Benchmark": "benchmark",
+    "Multimodal": "multimodal",
+    "Open Source": "open-source",
+}
+SOURCE_OPTIONS = {
+    "Hugging Face": "huggingface",
+    "Hacker News": "hackernews",
+}
+
 
 st.set_page_config(page_title="TrendCurator", page_icon="TC", layout="wide")
-st.title("TrendCurator")
-st.caption("AI Agent trend digest, query, groundedness check, and orchestration demo")
 
 
-def api_get(path: str) -> dict:
+def api_get(path: str) -> dict[str, Any]:
     response = requests.get(f"{API_BASE_URL}{path}", timeout=20)
     response.raise_for_status()
     return response.json()
 
 
-def api_post(path: str, payload: dict, timeout: int = 60) -> dict:
+def api_post(path: str, payload: dict[str, Any], timeout: int = 60) -> dict[str, Any]:
     response = requests.post(f"{API_BASE_URL}{path}", json=payload, timeout=timeout)
     response.raise_for_status()
     return response.json()
 
 
+def error_message(payload: dict[str, Any], fallback: str) -> str:
+    error = payload.get("error")
+    if isinstance(error, dict):
+        message = error.get("message")
+        code = error.get("code")
+        return f"{code}: {message}" if code and message else message or fallback
+    if isinstance(error, str):
+        return error
+    return fallback
+
+
+def selected_values(labels: list[str], options: dict[str, str]) -> list[str]:
+    return [options[label] for label in labels]
+
+
+def keyword_list(text: str) -> list[str]:
+    return [item.strip() for item in text.split(",") if item.strip()]
+
+
+def render_result_item(item: dict[str, Any], index: int) -> None:
+    title = item.get("title") or item.get("document_id") or f"결과 {index}"
+    with st.container(border=True):
+        top = st.columns([0.64, 0.18, 0.18])
+        top[0].markdown(f"**{index}. {title}**")
+        top[1].metric("Relevance", f"{item.get('relevance_score', 0.0):.2f}")
+        top[2].metric("Similarity", f"{item.get('similarity_score', 0.0):.2f}")
+
+        meta = []
+        if item.get("source"):
+            meta.append(str(item["source"]))
+        if item.get("published_at"):
+            meta.append(str(item["published_at"]))
+        if meta:
+            st.caption(" | ".join(meta))
+
+        st.write(item.get("summary_preview") or "요약 정보가 없습니다.")
+        keywords = item.get("matched_keywords") or []
+        if keywords:
+            st.caption("키워드: " + ", ".join(keywords))
+        if item.get("url"):
+            st.link_button("원문 열기", item["url"])
+
+
+def render_sources(sources: list[dict[str, Any]]) -> None:
+    if not sources:
+        st.info("검색된 근거 문서가 없습니다.")
+        return
+
+    for index, source in enumerate(sources, start=1):
+        title = source.get("title") or source.get("document_id") or f"근거 {index}"
+        with st.container(border=True):
+            st.markdown(f"**{index}. {title}**")
+            meta = [value for value in [source.get("source"), source.get("period")] if value]
+            if meta:
+                st.caption(" | ".join(str(value) for value in meta))
+            if source.get("url"):
+                st.link_button("근거 열기", source["url"])
+
+
+def render_query_response(data: dict[str, Any]) -> None:
+    metrics = st.columns(3)
+    metrics[0].metric("Intent", data["intent"])
+    metrics[1].metric("Groundedness", f"{data['groundedness_score']:.2f}")
+    metrics[2].metric("근거 문서", len(data["sources"]))
+
+    st.markdown("### 답변")
+    st.write(data["answer"])
+
+    for warning in data.get("warnings", []):
+        st.warning(warning)
+
+    if data.get("comparison_metadata"):
+        with st.expander("기간 비교 정보", expanded=True):
+            st.json(data["comparison_metadata"])
+
+    st.markdown("### 근거")
+    render_sources(data["sources"])
+
+
 with st.sidebar:
-    st.header("Backend")
+    st.header("TrendCurator")
+    st.caption("Backend")
     st.code(API_BASE_URL)
+
     if st.button("Health check", use_container_width=True):
         try:
             st.success(api_get("/health")["status"])
         except Exception as exc:
             st.error(f"Backend unavailable: {exc}")
 
+    with st.expander("개발자 도구"):
+        if st.button("Dashboard 새로고침", use_container_width=True):
+            try:
+                dashboard = api_get(f"{API_PREFIX}/dashboard")
+                if dashboard.get("success"):
+                    st.json(dashboard["data"])
+                else:
+                    st.error(error_message(dashboard, "Dashboard 조회 실패"))
+            except Exception as exc:
+                st.error(f"Dashboard 요청 실패: {exc}")
 
-dashboard_tab, collect_tab, query_tab, digest_tab, groundedness_tab = st.tabs([
-    "Dashboard",
-    "Collect",
-    "Query",
-    "Digest",
-    "Groundedness",
+        collect_date = st.date_input("수집 날짜", value=date.today(), key="collect_date")
+        if st.button("데이터 수집 실행", use_container_width=True):
+            try:
+                with st.spinner("데이터 수집 및 임베딩 저장 중입니다."):
+                    payload = api_post(
+                        f"{API_PREFIX}/pipeline/collect",
+                        {"date": collect_date.isoformat()},
+                        timeout=600,
+                    )
+                if not payload.get("success"):
+                    st.error(error_message(payload, "수집 실패"))
+                else:
+                    data = payload["data"]
+                    st.success(
+                        f"수집 {data['collected_count']}개, "
+                        f"관련 문서 {data['filtered_count']}개, "
+                        f"저장 {data['ingested_count']}개"
+                    )
+                    for warning in data.get("warnings", []):
+                        st.warning(warning)
+            except Exception as exc:
+                st.error(f"수집 요청 실패: {exc}")
+
+
+st.title("TrendCurator")
+st.caption("Daily Digest, 온디맨드 질의, 기간별 트렌드 비교를 한 화면에서 확인합니다.")
+
+digest_tab, ondemand_tab, comparison_tab = st.tabs([
+    "Daily Digest",
+    "On-demand 질의",
+    "트렌드 비교",
 ])
 
-
-with dashboard_tab:
-    st.subheader("Pipeline status")
-    try:
-        payload = api_get(f"{API_PREFIX}/dashboard")
-        if not payload.get("success"):
-            st.warning(payload.get("error") or "Dashboard data unavailable")
-        else:
-            data = payload["data"]
-            status = data["collection_status"]
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Collected", status["collected_count"])
-            col2.metric("Filtered", status["filtered_count"])
-            col3.metric("Generated at", data["generated_at"])
-            st.json(data)
-    except Exception as exc:
-        st.error(f"Dashboard request failed: {exc}")
-
-
-with collect_tab:
-    st.subheader("데이터 수집 및 저장")
-    collect_date = st.date_input("수집 날짜", value=date.today(), key="collect_date")
-    if st.button("수집 실행", type="primary"):
-        try:
-            with st.spinner("수집 중... 임베딩 포함 2~5분 소요될 수 있습니다."):
-                payload = api_post(f"{API_PREFIX}/pipeline/collect", {
-                    "date": collect_date.isoformat(),
-                }, timeout=600)
-            if not payload.get("success"):
-                st.error(payload.get("error") or "수집 실패")
-            else:
-                data = payload["data"]
-                col1, col2, col3, col4 = st.columns(4)
-                col1.metric("수집", data["collected_count"])
-                col2.metric("관련 문서", data["filtered_count"])
-                col3.metric("저장", data["ingested_count"])
-                col4.metric("스킵", data["skipped_count"])
-                st.caption(f"완료: {data['collected_at']}")
-                for w in data.get("warnings", []):
-                    st.warning(w)
-        except Exception as exc:
-            st.error(f"수집 요청 실패: {exc}")
-
-
-with query_tab:
-    st.subheader("Ask TrendCurator")
-    question = st.text_area(
-        "Question",
-        value="Summarize recent LangGraph and multi-agent technology trends.",
-        height=100,
-    )
-    top_k = st.slider("Top K", min_value=1, max_value=20, value=5)
-    base_date = st.date_input("Base date", value=date.today())
-    if st.button("Run query", type="primary"):
-        try:
-            payload = api_post(f"{API_PREFIX}/query", {
-                "question": question,
-                "top_k": top_k,
-                "date_to": base_date.isoformat(),
-            })
-            if not payload.get("success"):
-                st.error(payload.get("error") or "Query failed")
-            else:
-                data = payload["data"]
-                st.metric("Groundedness", data["groundedness_score"])
-                st.write(data["answer"])
-                for warning in data.get("warnings", []):
-                    st.warning(warning)
-                if data.get("comparison_metadata"):
-                    st.write("Comparison metadata")
-                    st.json(data["comparison_metadata"])
-                st.write("Sources")
-                st.dataframe(data["sources"], use_container_width=True)
-        except Exception as exc:
-            st.error(f"Query request failed: {exc}")
-
-
 with digest_tab:
-    st.subheader("Generate Daily Digest")
-    digest_date = st.date_input("Digest date", value=date.today())
-    digest_top_k = st.slider("Digest Top K", min_value=1, max_value=20, value=5)
-    keywords = st.text_input("Profile keywords", value="LangGraph, Multi-agent, RAG")
-    if st.button("Generate digest", type="primary"):
+    st.subheader("Daily Digest")
+    st.caption("선호 카테고리와 키워드를 기준으로 관련 문서를 필터링하고 Digest 후보를 확인합니다.")
+
+    left, right = st.columns([0.58, 0.42])
+    with left:
+        category_labels = st.multiselect(
+            "선호 카테고리",
+            options=list(CATEGORY_OPTIONS.keys()),
+            default=["AI Agent", "LangGraph", "RAG"],
+        )
+        digest_keywords = st.text_input("Digest 키워드", value="multi-agent, workflow")
+    with right:
+        source_labels = st.multiselect(
+            "수집 채널",
+            options=list(SOURCE_OPTIONS.keys()),
+            default=list(SOURCE_OPTIONS.keys()),
+        )
+        digest_date = st.date_input("Digest 기준일", value=date.today())
+        digest_top_k = st.slider("Digest 후보 수", min_value=3, max_value=20, value=8)
+
+    if st.button("Digest 후보 보기", type="primary", use_container_width=True):
+        categories = selected_values(category_labels, CATEGORY_OPTIONS)
+        sources = selected_values(source_labels, SOURCE_OPTIONS)
+        query_terms = categories + keyword_list(digest_keywords)
+        payload = {
+            "query": "AI Agent Daily Digest " + " ".join(query_terms or ["agent", "trend"]),
+            "top_k": digest_top_k,
+            "date_from": (digest_date - timedelta(days=7)).isoformat(),
+            "date_to": digest_date.isoformat(),
+            "sources": sources,
+            "categories": categories,
+        }
         try:
-            payload = api_post(f"{API_PREFIX}/digest/generate", {
-                "date": digest_date.isoformat(),
-                "top_k": digest_top_k,
-                "profile_based": True,
-                "keywords": [item.strip() for item in keywords.split(",") if item.strip()],
-            })
+            result = api_post(f"{API_PREFIX}/documents/search", payload)
+            if not result.get("success"):
+                st.error(error_message(result, "Digest 후보 검색에 실패했습니다."))
+            else:
+                data = result["data"]
+                results = data["results"]
+                st.caption(f"검색 쿼리: {data['rewritten_query']}")
+                st.metric("필터 적용 결과", len(results))
+                if not results:
+                    st.info("조건에 맞는 문서가 없습니다. 카테고리나 기간을 넓혀보세요.")
+                for index, item in enumerate(results, start=1):
+                    render_result_item(item, index)
+        except Exception as exc:
+            st.error(f"Digest 후보 요청 실패: {exc}")
+
+    with st.expander("Solar Pro Digest 생성"):
+        st.caption("VectorDB 후보 문서를 바탕으로 실제 Daily Digest를 생성합니다.")
+        if st.button("Daily Digest 생성", use_container_width=True):
+            try:
+                payload = api_post(
+                    f"{API_PREFIX}/digest/generate",
+                    {
+                        "date": digest_date.isoformat(),
+                        "top_k": digest_top_k,
+                        "profile_based": True,
+                        "keywords": keyword_list(digest_keywords),
+                    },
+                    timeout=120,
+                )
+                if not payload.get("success"):
+                    st.error(error_message(payload, "Digest 생성 실패"))
+                else:
+                    data = payload["data"]
+                    digest = data["digest"]
+                    st.metric("Groundedness", data["groundedness_score"])
+                    st.markdown(f"### {digest['title']}")
+                    for item in digest["items"]:
+                        with st.expander(item["title"]):
+                            st.write(item["summary"])
+                            for point in item.get("key_points", []):
+                                st.markdown(f"- {point}")
+                            if item.get("url"):
+                                st.link_button("원문 열기", item["url"])
+            except Exception as exc:
+                st.error(f"Digest 생성 요청 실패: {exc}")
+
+with ondemand_tab:
+    st.subheader("On-demand 질의")
+    question = st.text_area(
+        "질문",
+        value="최근 LangGraph와 멀티 에이전트 기술 트렌드를 알려줘",
+        height=120,
+    )
+    query_left, query_right = st.columns([0.5, 0.5])
+    with query_left:
+        query_top_k = st.slider("근거 문서 수", min_value=1, max_value=20, value=5, key="ondemand_top_k")
+    with query_right:
+        base_date = st.date_input("기준일", value=date.today(), key="ondemand_base_date")
+
+    if st.button("질문 보내기", type="primary", use_container_width=True):
+        try:
+            payload = api_post(
+                f"{API_PREFIX}/query",
+                {
+                    "question": question,
+                    "top_k": query_top_k,
+                    "date_to": base_date.isoformat(),
+                },
+                timeout=90,
+            )
             if not payload.get("success"):
-                st.error(payload.get("error") or "Digest failed")
+                st.error(error_message(payload, "질의에 실패했습니다."))
+            else:
+                render_query_response(payload["data"])
+        except Exception as exc:
+            st.error(f"온디맨드 질의 실패: {exc}")
+
+with comparison_tab:
+    st.subheader("트렌드 비교 질문")
+    st.caption("기간 비교 의도가 명확한 질문을 입력하면 LangGraph가 트렌드 비교 경로로 오케스트레이션합니다.")
+
+    comparison_question = st.text_area(
+        "비교 질문",
+        value="지난주 대비 이번 주 LangGraph와 멀티 에이전트 트렌드는 어떻게 달라졌어?",
+        height=120,
+    )
+    comp_left, comp_right = st.columns([0.5, 0.5])
+    with comp_left:
+        comparison_top_k = st.slider("기간별 근거 문서 수", min_value=1, max_value=20, value=5)
+    with comp_right:
+        comparison_base_date = st.date_input("비교 기준일", value=date.today())
+
+    if st.button("트렌드 비교 실행", type="primary", use_container_width=True):
+        try:
+            payload = api_post(
+                f"{API_PREFIX}/query",
+                {
+                    "question": comparison_question,
+                    "top_k": comparison_top_k,
+                    "date_to": comparison_base_date.isoformat(),
+                },
+                timeout=90,
+            )
+            if not payload.get("success"):
+                st.error(error_message(payload, "트렌드 비교에 실패했습니다."))
             else:
                 data = payload["data"]
-                st.metric("Groundedness", data["groundedness_score"])
-                st.write(data["digest"]["title"])
-                for item in data["digest"]["items"]:
-                    label = f"[{item.get('source', '')}] {item['title']}"
-                    with st.expander(label):
-                        meta_cols = st.columns(2)
-                        meta_cols[0].caption(f"출처: {item.get('source', '-')}")
-                        meta_cols[1].caption(f"발행일: {item.get('published_at') or '-'}")
-
-                        st.markdown("**요약**")
-                        st.write(item["summary"])
-
-                        st.markdown("**핵심 포인트**")
-                        for pt in item.get("key_points", []):
-                            st.markdown(f"- {pt}")
-
-                        st.markdown("**기여**")
-                        st.write(item.get("contribution") or "-")
-
-                        st.markdown("**벤치마크**")
-                        st.write(item.get("benchmark") or "-")
-
-                        st.markdown("**비평**")
-                        st.write(item.get("critique") or "-")
-
-                        tags = item.get("tags", [])
-                        if tags:
-                            st.caption("태그: " + ", ".join(tags))
-
-                        st.link_button("원문 보기", item["url"])
+                if data["intent"] != "trend_comparison":
+                    st.warning("질문이 일반 질의로 분류되었습니다. '지난주 대비 이번 주'처럼 비교 기간을 더 명확히 적어보세요.")
+                render_query_response(data)
         except Exception as exc:
-            st.error(f"Digest request failed: {exc}")
-
-
-with groundedness_tab:
-    st.subheader("Groundedness Check")
-    answer = st.text_area("Answer", height=140)
-    contexts = st.text_area("Source contexts", height=180, help="Separate multiple contexts with a blank line.")
-    threshold = st.slider("Threshold", min_value=0.0, max_value=1.0, value=0.8, step=0.05)
-    if st.button("Check groundedness", type="primary"):
-        try:
-            payload = api_post(f"{API_PREFIX}/groundedness/check", {
-                "answer": answer,
-                "contexts": [part.strip() for part in contexts.split("\n\n") if part.strip()],
-                "threshold": threshold,
-            })
-            data = payload["data"]
-            st.metric("Score", data["score"])
-            st.write("Passed" if data["passed"] else "Needs repair")
-            st.write(data["feedback"])
-        except Exception as exc:
-            st.error(f"Groundedness request failed: {exc}")
+            st.error(f"트렌드 비교 요청 실패: {exc}")
