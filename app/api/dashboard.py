@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from app.api.responses import ErrorResponse, error_response
 from app.core.chroma_client import ChromaClient
 from app.core.settings import Settings, get_settings
 
@@ -17,7 +18,7 @@ router = APIRouter()
 class DashboardResponse(BaseModel):
     success: bool
     data: dict[str, Any] | None = None
-    error: str | None = None
+    error: ErrorResponse | None = None
 
 
 def get_chroma(settings: Settings = Depends(get_settings)) -> ChromaClient:
@@ -29,7 +30,10 @@ def get_dashboard(chroma: ChromaClient = Depends(get_chroma)) -> DashboardRespon
     try:
         document_count = chroma.count()
     except Exception as exc:
-        return DashboardResponse(success=False, error=str(exc))
+        return DashboardResponse(
+            success=False,
+            error=error_response("DASHBOARD_UNAVAILABLE", str(exc)),
+        )
 
     return DashboardResponse(
         success=True,
