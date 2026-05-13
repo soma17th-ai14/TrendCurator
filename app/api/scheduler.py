@@ -114,9 +114,9 @@ def update_scheduler(
             _SCHEDULER = SchedulerService(SchedulerState(config=config))
             _SCHEDULER_ERROR = None
             scheduler = _SCHEDULER
-            ensure_loop_running(scheduler)
         else:
             scheduler.update_config(config)
+        ensure_loop_running(scheduler)
     except SchedulerConfigError as exc:
         return SchedulerResponse(
             success=False,
