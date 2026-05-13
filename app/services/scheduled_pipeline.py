@@ -39,14 +39,21 @@ COLLECTORS = [
 ]
 
 
-async def fetch_all_documents(target_date: date) -> tuple[list, list[str]]:
-    """모든 소스에서 문서를 병렬 수집하고 (documents, warnings) 를 반환합니다."""
-    tasks = [collector.fetch(target_date) for collector in COLLECTORS]
+async def fetch_all_documents(
+    target_date: date,
+    sources: list[str] | None = None,
+) -> tuple[list, list[str]]:
+    """지정된 소스에서 문서를 병렬 수집하고 (documents, warnings) 를 반환합니다.
+
+    sources가 None이면 COLLECTORS 전체를 사용합니다.
+    """
+    active = [c for c in COLLECTORS if sources is None or c.source_name in sources]
+    tasks = [collector.fetch(target_date) for collector in active]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     documents = []
     warnings = []
-    for collector, result in zip(COLLECTORS, results):
+    for collector, result in zip(active, results):
         if isinstance(result, Exception):
             warnings.append(f"{collector.__class__.__name__} 수집 실패: {result}")
             continue
@@ -60,13 +67,14 @@ def run_pipeline(run_date: date, config: SchedulerConfig) -> str | None:
     settings: Settings = get_settings()
 
     # 1. 수집
+    active_sources = list(config.sources)
     try:
-        documents, warnings = asyncio.run(fetch_all_documents(run_date))
+        documents, warnings = asyncio.run(fetch_all_documents(run_date, sources=active_sources))
     except Exception as exc:
         logger.error("스케줄러: 수집 단계 실패 (%s)", exc)
         return None
 
-    if len(warnings) == len(COLLECTORS):
+    if len(warnings) == len(active_sources):
         logger.error("스케줄러: 모든 소스 수집 실패 — %s", "; ".join(warnings))
         return None
 
@@ -99,7 +107,7 @@ def run_pipeline(run_date: date, config: SchedulerConfig) -> str | None:
         keywords = profile.keywords if profile else ["LangGraph", "Multi-agent", "RAG"]
         language = profile.language if profile else "ko"
 
-        retriever = Retriever(ChromaClient(settings))
+        retriever = Retriever(EmbeddingClient(settings), ChromaClient(settings))
         retrieval = DailyDigestRetriever(retriever).retrieve(DailyDigestRetrievalRequest(
             digest_date=run_date,
             top_k=10,
