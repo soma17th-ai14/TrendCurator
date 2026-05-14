@@ -127,13 +127,25 @@ def test_adapter_rejects_generation_date_mismatch():
         )
 
 
-def test_adapter_rejects_generation_item_order_mismatch():
+def test_adapter_allows_reordered_items():
+    """LLM 이 후보 순서와 다르게 items 를 정렬해도 어댑터는 통과해야 한다."""
     adapter = DigestGenerationAdapter()
 
-    with pytest.raises(ValueError, match="item 순서"):
+    result = adapter.to_run_result(
+        retrieval_result=_retrieval_result(),
+        generation_result=_generation_result(items=[_item("doc_002"), _item("doc_001")]),
+    )
+
+    assert [item.document_id for item in result.digest.items] == ["doc_002", "doc_001"]
+
+
+def test_adapter_rejects_unknown_item_id():
+    adapter = DigestGenerationAdapter()
+
+    with pytest.raises(ValueError, match="item의 document_id"):
         adapter.to_run_result(
             retrieval_result=_retrieval_result(),
-            generation_result=_generation_result(items=[_item("doc_002"), _item("doc_001")]),
+            generation_result=_generation_result(items=[_item("doc_001"), _item("doc_999")]),
         )
 
 

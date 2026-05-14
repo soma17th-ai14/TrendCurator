@@ -71,12 +71,15 @@ class DigestGenerationAdapter:
         if generation_result.date != retrieval_result.digest_date:
             raise ValueError("Digest 생성 결과 date가 검색 결과 digest_date와 다릅니다.")
 
-        candidate_ids = [candidate.document_id for candidate in retrieval_result.candidates]
-        item_ids = [item.document_id for item in generation_result.items]
-        if item_ids != candidate_ids:
-            raise ValueError("Digest 생성 결과 item 순서가 검색 후보 문서와 일치하지 않습니다.")
+        candidate_id_set = {candidate.document_id for candidate in retrieval_result.candidates}
+        unknown_item_ids = [
+            item.document_id
+            for item in generation_result.items
+            if item.document_id not in candidate_id_set
+        ]
+        if unknown_item_ids:
+            raise ValueError("Digest 생성 결과 item의 document_id가 검색 후보 문서에 없습니다.")
 
-        candidate_id_set = set(candidate_ids)
         unknown_evidence_ids = [
             evidence_id
             for item in generation_result.items

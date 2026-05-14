@@ -124,19 +124,10 @@ class SolarProDigestResponseParser:
         payload: dict[str, Any],
         candidates: list[DigestCandidate],
     ) -> None:
-        candidate_ids = [candidate.document_id for candidate in candidates]
-        candidate_id_set = set(candidate_ids)
+        candidate_id_set = {candidate.document_id for candidate in candidates}
         items = payload.get("items")
         if not isinstance(items, list):
             raise ValueError("Solar Pro Digest 응답의 items 값이 유효하지 않습니다.")
-
-        item_ids = [
-            item.get("document_id")
-            for item in items
-            if isinstance(item, dict)
-        ]
-        if item_ids != candidate_ids:
-            raise ValueError("Digest items의 document_id 순서가 후보 문서와 일치해야 합니다.")
 
         for item in items:
             if not isinstance(item, dict):

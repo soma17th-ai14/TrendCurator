@@ -134,11 +134,12 @@ def test_parse_rejects_unknown_item_document_id():
     payload = _response_payload()
     payload["items"][0]["document_id"] = "doc_missing"
 
-    with pytest.raises(ValueError, match="후보 문서와 일치"):
+    with pytest.raises(ValueError, match="후보 문서에 없습니다"):
         parser.parse(payload, request=_request())
 
 
-def test_parse_rejects_missing_candidate_item():
+def test_parse_allows_subset_of_candidates():
+    """LLM 이 후보 일부만 골라 돌려줘도 파서는 그대로 허용해야 한다."""
     parser = SolarProDigestResponseParser()
     request = SolarProDigestGenerationRequest(
         digest_date=date(2026, 5, 6),
@@ -150,11 +151,13 @@ def test_parse_rejects_missing_candidate_item():
     )
     payload = _response_payload()
 
-    with pytest.raises(ValueError, match="후보 문서와 일치"):
-        parser.parse(payload, request=request)
+    result = parser.parse(payload, request=request)
+
+    assert [item.document_id for item in result.items] == ["doc_001"]
 
 
-def test_parse_rejects_candidate_item_order_mismatch():
+def test_parse_allows_reordered_items():
+    """LLM 이 후보와 다른 순서로 items 를 돌려줘도 파서는 그대로 허용해야 한다."""
     parser = SolarProDigestResponseParser()
     request = SolarProDigestGenerationRequest(
         digest_date=date(2026, 5, 6),
@@ -170,7 +173,23 @@ def test_parse_rejects_candidate_item_order_mismatch():
     second_item["evidence_document_ids"] = ["doc_002"]
     payload["items"] = [second_item, payload["items"][0]]
 
-    with pytest.raises(ValueError, match="순서"):
+    result = parser.parse(payload, request=request)
+
+    assert [item.document_id for item in result.items] == ["doc_002", "doc_001"]
+
+
+def test_parse_rejects_unknown_item_id():
+    parser = SolarProDigestResponseParser()
+    request = SolarProDigestGenerationRequest(
+        digest_date=date(2026, 5, 6),
+        profile_keywords=["LangGraph", "Multi-agent"],
+        candidates=[_candidate(document_id="doc_001")],
+    )
+    payload = _response_payload()
+    payload["items"][0]["document_id"] = "doc_999"
+    payload["items"][0]["evidence_document_ids"] = ["doc_001"]
+
+    with pytest.raises(ValueError, match="document_id"):
         parser.parse(payload, request=request)
 
 
