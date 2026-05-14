@@ -571,21 +571,21 @@ Response
 
 ## 11. 주요 에러 코드
 
-| Code                           | 설명                                    |
-| ------------------------------ | --------------------------------------- |
-| `PROFILE_NOT_FOUND`            | 관심사 프로필이 설정되지 않음           |
-| `HUGGINGFACE_COLLECTOR_FAILED` | HuggingFace Daily Papers 수집 실패      |
-| `HACKERNEWS_COLLECTOR_FAILED`  | HackerNews 수집 실패                    |
-| `NORMALIZATION_FAILED`         | 공통 Document 스키마 변환 실패          |
-| `VECTOR_DB_ERROR`              | ChromaDB 저장 또는 검색 실패            |
-| `INSUFFICIENT_DATA`            | 트렌드 비교에 필요한 기간별 데이터 부족 |
-| `GROUNDING_FAILED`             | Groundedness Check 기준 미달            |
-| `LLM_GENERATION_FAILED`        | LLM 응답 생성 실패                      |
-| `INVALID_DATE_RANGE`           | 날짜 범위 입력 오류                     |
-| `SCHEDULER_ERROR`              | 정기 발행 스케줄러 오류                 |
-| `RELEVANCE_FILTER_FAILED`      | Solar Mini 관련성 판정 실패             |
-| `DIGEST_RETRIEVAL_FAILED`      | Daily Digest 후보 문서 검색 실패        |
-| `DIGEST_GENERATION_FAILED`     | Solar Pro 3 Digest 요약/비평 생성 실패  |
+현재 구현에서 실제 반환되는 에러 코드는 다음과 같습니다.
+
+| Code                       | 발생 위치                       | 설명                                                  |
+| -------------------------- | ------------------------------- | ----------------------------------------------------- |
+| `PROFILE_NOT_FOUND`        | `GET/PUT /profile`              | 관심사 프로필이 설정되지 않았거나 저장소 접근 실패    |
+| `SCHEDULER_ERROR`          | `GET/PUT /scheduler`            | 스케줄러 초기화 또는 설정 갱신 실패                   |
+| `DIGEST_GENERATION_FAILED` | `POST /digest/generate`         | Solar Pro 다이제스트 생성 또는 재조회 실패            |
+| `DIGEST_STORE_ERROR`       | `POST /digest/generate`, `GET /digest` | 다이제스트 파일 저장소 입출력 실패           |
+| `DIGEST_NOT_FOUND`         | `GET /digest/{digest_id}`       | 요청한 다이제스트가 존재하지 않음                     |
+| `DASHBOARD_UNAVAILABLE`    | `GET /dashboard`                | 대시보드 데이터를 조립할 수 없음                      |
+| `COLLECTION_FAILED`        | `POST /pipeline/collect`        | 모든 소스 수집 실패 또는 파이프라인 단계 예외         |
+| `CONTEXT_LOOKUP_FAILED`    | `POST /groundedness/check`      | 검증에 사용할 컨텍스트 조회 실패                      |
+| `QUERY_FAILED`             | `POST /query`                   | 질의 워크플로우 실행 중 예기치 못한 예외 발생         |
+
+`POST /pipeline/collect`, `POST /query`, `POST /groundedness/check`, `POST /documents/search` 는 성공/부분 성공 응답 안에 `warnings` 배열이나 부분 점수를 담아 돌려주는 방식을 우선하며, 별도의 에러 코드 없이 `success: true` 로 응답하는 경우가 많습니다. 호출 측은 응답 본문의 `warnings` 와 결과 카운트도 함께 검사해야 합니다.
 
 ## 12. 역할 분담 기준 API 매핑
 

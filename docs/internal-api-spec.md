@@ -275,18 +275,17 @@ Daily Digest 후보 문서를 바탕으로 요약, 핵심 포인트, 기여, 벤
         "summary": "핵심 요약",
         "key_points": ["핵심 내용 1", "핵심 내용 2"],
         "contribution": "주요 기여",
-        "benchmark": "성능 수치 또는 실험 결과",
-        "critique": "기존 기술 대비 차별점 및 한계",
+        "benchmark": "성능 수치 또는 실험 설정",
+        "critique": "문서가 명시한 한계, 적용 조건, 또는 비교 baseline",
         "tags": ["multi-agent", "rag"],
         "evidence_document_ids": ["doc_001"],
         "llm_model": "solar-pro-3"
       }
-    ],
-    "groundedness_score": 0.91
+    ]
   }
   ```
 
-근거 문서에 없는 수치, 벤치마크, 주장, 한계를 생성할 수 없으면 해당 필드는 빈 문자열 또는 `"명시된 근거 없음"`으로 반환합니다.
+`groundedness_score` 필드는 LLM 출력 계약에서 제외하며, 이후 Groundedness 검사 단계에서 결과 모델에 주입됩니다. 근거 문서에 데이터셋·평가 설정·trade-off 어느 단서도 없을 때만 `benchmark`/`critique`/`contribution` 을 `"명시된 근거 없음"` 으로 반환합니다.
 
 ### Digest Generation Adapter
 
