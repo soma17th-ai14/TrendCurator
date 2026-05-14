@@ -105,47 +105,56 @@ def _run_result(digest_date: date = date(2026, 5, 6)) -> DigestGenerationRunResu
 
 
 def test_generate_digest_saves_run_result(monkeypatch):
-    store = FakeDigestStore()
-    monkeypatch.setattr(digest_api, "GroundednessChecker", lambda: FakeGroundednessChecker())
-    app.dependency_overrides[get_retriever] = lambda: FakeRetriever()
+    """엔드포인트가 regenerate_digest 를 호출해 결과를 저장하고 응답으로 돌려준다."""
+    store = FakeDigestStore({"digest_20260506": _run_result()})
+
+    calls = []
+
+    def fake_regenerate(run_date, *, sources, keywords, language, top_k):
+        calls.append({
+            "run_date": run_date,
+            "sources": sources,
+            "keywords": keywords,
+            "language": language,
+            "top_k": top_k,
+        })
+        return f"digest_{run_date:%Y%m%d}"
+
+    monkeypatch.setattr(digest_api, "regenerate_digest", fake_regenerate)
     app.dependency_overrides[get_digest_store] = lambda: store
     app.dependency_overrides[get_profile_store] = lambda: FakeProfileStore()
     try:
         client = TestClient(app)
         response = client.post(
             "/api/v1/digest/generate",
-            json={"date": "2026-05-06", "top_k": 1},
+            json={"date": "2026-05-06", "top_k": 1, "profile_based": False},
         )
     finally:
         app.dependency_overrides.clear()
 
     assert response.status_code == 200
     assert response.json()["success"] is True
-    assert store.saved
-    assert store.saved[0].digest_id == "digest_20260506"
+    assert len(calls) == 1
+    assert calls[0]["run_date"] == date(2026, 5, 6)
+    assert calls[0]["top_k"] == 1
+    assert set(calls[0]["sources"]) == {"huggingface", "hackernews"}
 
 
 def test_generate_digest_uses_profile_keywords_when_profile_based(monkeypatch):
-    store = FakeDigestStore()
-    captured_requests = []
-
-    original_retrieve = digest_api.DailyDigestRetriever
-
-    class CapturingDailyDigestRetriever:
-        def __init__(self, retriever):
-            self._inner = original_retrieve(retriever)
-
-        def retrieve(self, request):
-            captured_requests.append(request)
-            return self._inner.retrieve(request)
-
-    monkeypatch.setattr(digest_api, "GroundednessChecker", lambda: FakeGroundednessChecker())
-    monkeypatch.setattr(digest_api, "DailyDigestRetriever", CapturingDailyDigestRetriever)
-
+    """profile_based=True 면 프로필의 keywords/language 가 regenerate_digest 로 전달된다."""
     from app.services.profile_store import UserProfile
-    profile = UserProfile(keywords=["AgentBench", "ToolUse"], language="en", digest_time="09:00")
 
-    app.dependency_overrides[get_retriever] = lambda: FakeRetriever()
+    store = FakeDigestStore({"digest_20260506": _run_result()})
+    captured = {}
+
+    def fake_regenerate(run_date, *, sources, keywords, language, top_k):
+        captured["keywords"] = keywords
+        captured["language"] = language
+        return f"digest_{run_date:%Y%m%d}"
+
+    monkeypatch.setattr(digest_api, "regenerate_digest", fake_regenerate)
+
+    profile = UserProfile(keywords=["AgentBench", "ToolUse"], language="en", digest_time="09:00")
     app.dependency_overrides[get_digest_store] = lambda: store
     app.dependency_overrides[get_profile_store] = lambda: FakeProfileStore(profile)
     try:
@@ -158,8 +167,8 @@ def test_generate_digest_uses_profile_keywords_when_profile_based(monkeypatch):
         app.dependency_overrides.clear()
 
     assert response.status_code == 200
-    assert len(captured_requests) == 1
-    assert captured_requests[0].keywords == ["AgentBench", "ToolUse"]
+    assert captured["keywords"] == ["AgentBench", "ToolUse"]
+    assert captured["language"] == "en"
 
 
 def test_get_digest_returns_saved_digest_contract():
