@@ -83,11 +83,19 @@ Response
 {
   "success": true,
   "data": {
-    "message": "Profile updated"
+    "message": "프로필이 저장되었습니다. 키워드가 변경되었으므로, 새 키워드를 반영하려면 오늘의 Digest 재생성 버튼을 눌러주세요. 기존 다이제스트는 자동으로 갱신되지 않습니다.",
+    "keywords_changed": true
   },
   "error": null
 }
 ```
+
+응답 필드:
+
+- `data.keywords_changed` (boolean): 직전에 저장돼 있던 프로필의 `keywords` 와 비교해 값이 달라졌으면 `true`. 신규 프로필 생성 시에도 빈 리스트에서 값이 들어왔다면 `true` 가 됩니다.
+- `data.message` (string): 사용자에게 표시할 한국어 안내 문구. `keywords_changed` 가 `true` 면 다이제스트 재생성을 안내하는 문구로 바뀝니다.
+
+기존 다이제스트는 키워드 변경만으로 자동 재생성되지 않습니다. 새 키워드를 반영하려면 다음 스케줄 사이클까지 기다리거나, 클라이언트에서 다이제스트 재생성 API/UI를 호출해야 합니다.
 
 ## 3. 데이터 수집 파이프라인 API
 
