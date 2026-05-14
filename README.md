@@ -71,6 +71,71 @@ TrendCurator는 AI 에이전트 관련 최신 정보를 자동 수집하고, 검
 - `SKILLS.md`: 팀 공통 개발 규칙과 아키텍처 기준을 정의합니다.
 - `CONTRIBUTING.md`: 브랜치, PR, 리뷰, 커밋 규칙을 정의합니다.
 
+## 처음 실행 (초기 설정)
+
+1. 레포지토리 클론
+
+   ```bash
+   git clone https://github.com/soma17th-ai14/TrendCurator.git
+   cd TrendCurator
+   ```
+
+2. Python 가상환경 생성 및 활성화 (Python 3.11 이상)
+
+   ```bash
+   # macOS / Linux
+   python3 -m venv .venv
+   source .venv/bin/activate
+
+   # Windows PowerShell
+   python -m venv .venv
+   .venv\Scripts\Activate.ps1
+   ```
+
+3. 의존성 설치
+
+   런타임만 필요한 경우:
+
+   ```bash
+   pip install -e .
+   ```
+
+   테스트까지 실행하려면 dev 의존성을 함께 설치합니다.
+
+   ```bash
+   pip install -e ".[dev]"
+   ```
+
+4. 환경변수 파일 생성
+
+   `.env.example` 을 복사해 레포 루트에 `.env` 파일을 만들고, 발급받은 Upstage API 키를 채웁니다. 자세한 키 목록은 아래 [로컬 환경변수 설정](#로컬-환경변수-설정) 참고.
+
+   ```bash
+   cp .env.example .env
+   ```
+
+5. 백엔드 + 프론트엔드 실행
+
+   터미널 두 개에서 각각 실행합니다.
+
+   ```bash
+   # 터미널 1 — FastAPI 백엔드
+   uvicorn app.main:app --reload
+
+   # 터미널 2 — Streamlit 프론트엔드
+   streamlit run frontend/streamlit_app.py
+   ```
+
+   기본 주소: 백엔드 `http://localhost:8000`, 프론트엔드 `http://localhost:8501`.
+
+6. (선택) 테스트 실행
+
+   ```bash
+   python -m pytest
+   ```
+
+Docker Compose 로 한 번에 실행하려면 아래 [Docker Compose 실행](#docker-compose-실행) 섹션을 참고하세요. 가상환경 없이 컨테이너만 띄우면 됩니다.
+
 ## 로컬 환경변수 설정
 
 Solar API를 사용하는 모듈은 환경변수에서 키와 모델 설정을 읽습니다. 공개 레포에는 실제 API 키를 커밋하지 않습니다.
