@@ -118,10 +118,11 @@ st.markdown(
     .stMarkdown a:hover { text-decoration: underline !important; }
     hr { border-color: var(--border) !important; margin: 1rem 0 !important; }
 
-    /* ── Sidebar ── */
+    /* ── Sidebar ──
+       질의 영역(채팅) 가독성을 위해 폭을 확장. 메시지 줄바꿈이 잦아 답변이 잘려 보이던 문제 완화. */
     section[data-testid="stSidebar"] {
-        min-width: 340px !important;
-        max-width: 340px !important;
+        min-width: 440px !important;
+        max-width: 440px !important;
         background-color: var(--bg-surface) !important;
         border-right: 1px solid var(--border) !important;
     }
