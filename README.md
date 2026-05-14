@@ -159,26 +159,26 @@ DEMO_BOOTSTRAP_DAYS=5
 5. 비교
 6. UI
 
-## UI / integration / validation / deployment notes
+## UI · 통합 · 검증 · 배포
 
-This repository now includes the UI and integration layer for the education assignment:
+레포지토리에는 다음 UI/통합 계층이 포함되어 있습니다.
 
-- Streamlit UI in `frontend/streamlit_app.py`
-- FastAPI integration endpoints for dashboard, query, digest generation, and groundedness checks
-- LangGraph-based query orchestration with a sequential fallback before dependencies are installed
-- Groundedness Check service with an injectable RAGAS evaluator contract and a deterministic fallback scorer
-- Docker Compose services for the FastAPI backend and Streamlit frontend
+- `frontend/streamlit_app.py` 의 Streamlit UI
+- 대시보드, 질의, 다이제스트 생성, Groundedness 검사를 위한 FastAPI 통합 엔드포인트
+- LangGraph 기반 질의 워크플로우 (의존성 미설치 환경에서는 순차 실행 fallback 으로 동작)
+- 외부 평가기(RAGAS 등) 를 주입할 수 있는 인터페이스를 가진 Groundedness Check 서비스. 평가기가 없을 때는 결정적 키워드 겹침 스코어로 fallback 합니다.
+- FastAPI 백엔드와 Streamlit 프론트엔드를 함께 실행하는 Docker Compose 구성
 
-### Local run
+### 로컬 실행
 
 ```bash
 uvicorn app.main:app --reload
 streamlit run frontend/streamlit_app.py
 ```
 
-Streamlit calls `http://localhost:8000` by default. Override it with `TRENDCURATOR_API_BASE_URL`.
+Streamlit 은 기본적으로 `http://localhost:8000` 의 API 를 호출합니다. 다른 주소를 쓰려면 `TRENDCURATOR_API_BASE_URL` 환경변수로 덮어쓰면 됩니다.
 
-### Docker Compose run
+### Docker Compose 실행
 
 ```bash
 docker compose up --build
@@ -187,10 +187,11 @@ docker compose up --build
 - FastAPI: `http://localhost:8000`
 - Streamlit: `http://localhost:8501`
 
-Set `SOLAR_API_KEY` before running when real Solar generation or embedding calls are needed. Without the key, the UI and fallback groundedness/demo paths remain available.
-수집 파이프라인의 관련성 필터는 `SOLAR_API_KEY`가 설정된 경우 Solar Mini API로 문서 관련성을 판정합니다. 키가 없거나 Solar Mini 호출이 실패하면 기존 로컬 키워드 기반 판정으로 fallback합니다.
+실제 Solar 생성/임베딩 호출이 필요할 때는 `SOLAR_API_KEY` 를 먼저 설정하세요. 키가 없어도 UI 와 Groundedness 키워드 fallback, 데모 경로는 정상 동작합니다.
 
-### Added API surface
+수집 파이프라인의 관련성 필터는 `SOLAR_API_KEY` 가 설정된 경우 Solar Mini API 로 문서 관련성을 판정하고, 키가 없거나 호출이 실패하면 로컬 키워드 기반 판정으로 fallback 합니다.
+
+### 추가된 API 엔드포인트
 
 - `GET /health`
 - `GET /api/v1/dashboard`
@@ -198,16 +199,16 @@ Set `SOLAR_API_KEY` before running when real Solar generation or embedding calls
 - `POST /api/v1/groundedness/check`
 - `POST /api/v1/digest/generate`
 
-### Query orchestration
+### 질의 워크플로우
 
-`POST /api/v1/query` uses the query agents from the earlier integration work:
+`POST /api/v1/query` 는 다음 흐름으로 질의를 처리합니다.
 
 ```text
 IntentRouter
 -> GENERAL_QA: QueryRewriter -> Retriever
 -> TREND_COMPARISON: DateRangeParser -> PeriodRetriever
--> answer generation
+-> 답변 생성
 -> GroundednessChecker
 ```
 
-If the Solar API key or VectorDB search is unavailable, the workflow returns a warning and an empty-source response instead of failing with a 500 error.
+Solar API 키가 없거나 VectorDB 검색이 실패하면 500 에러 대신 경고와 빈 출처 응답을 돌려줍니다.
