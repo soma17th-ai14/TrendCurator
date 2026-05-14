@@ -32,27 +32,58 @@ from app.api.scheduler import router as scheduler_router
 logger = logging.getLogger(__name__)
 
 
-def _spawn_startup_digest_thread(config) -> threading.Thread:
-    """부팅 직후 효력 일자 기준 다이제스트를 백그라운드 스레드에서 생성합니다.
+def _spawn_startup_coordinator(scheduler, *, demo_days: int) -> threading.Thread:
+    """부팅 작업을 정해진 순서대로 직렬 실행한 뒤 스케줄러 루프를 시작합니다.
 
-    ``run_pipeline`` 은 LLM 호출과 외부 수집을 포함해 수십 초~수 분이 걸릴 수 있으므로,
-    ASGI 이벤트 루프를 막지 않도록 별도 데몬 스레드로 실행합니다.
+    순서:
+
+    1. demo bootstrap (``demo_days`` > 0 일 때만, 직전 N일 다이제스트 보강)
+    2. startup digest (효력 일자 다이제스트 생성)
+    3. 스케줄러 루프 가동
+
+    이전 구조에서는 1~3 이 모두 데몬 스레드로 동시에 spawn 되어, 같은 외부 API 를 짧은
+    간격으로 두 번 호출하는 race 가 있었습니다. ``_RUN_PIPELINE_LOCK`` 으로 직렬화는
+    돼 있지만, 부트스트랩이 완료되기 전에 스케줄러 루프가 같은 날짜 파이프라인을 추가로
+    돌리는 시나리오를 구조적으로 차단하기 위해 한 스레드 안에서 순차 실행합니다.
+
+    ASGI 이벤트 루프를 막지 않도록 코디네이터 자체는 데몬 스레드로 분리합니다.
     """
-    from app.services.scheduled_pipeline import run_startup_digest
+    from app.api.scheduler import ensure_loop_running
+    from app.services.scheduled_pipeline import run_demo_bootstrap, run_startup_digest
+
+    config = scheduler.state.config
 
     def _runner() -> None:
+        if demo_days > 0:
+            try:
+                run_demo_bootstrap(config, days=demo_days)
+            except Exception as exc:  # pragma: no cover - run_demo_bootstrap 내부에서 일자별 처리됨
+                logger.warning("startup coordinator: demo bootstrap 실패 (%s)", exc)
+
         try:
             run_startup_digest(config)
         except Exception as exc:  # pragma: no cover - run_startup_digest 내부에서 처리됨
-            logger.warning("부팅 자동 실행 스레드 오류: %s", exc)
+            logger.warning("startup coordinator: 효력 일자 다이제스트 생성 실패 (%s)", exc)
 
-    thread = threading.Thread(target=_runner, daemon=True, name="startup-digest")
+        # 부트스트랩 결과와 무관하게 스케줄러 루프는 가동돼야 향후 일일 사이클이 동작합니다.
+        try:
+            ensure_loop_running(scheduler)
+            logger.info("startup coordinator: 부트스트랩 완료 후 스케줄러 루프를 시작했습니다.")
+        except Exception as exc:  # pragma: no cover
+            logger.warning("startup coordinator: 스케줄러 루프 시작 실패 (%s)", exc)
+
+    thread = threading.Thread(target=_runner, daemon=True, name="startup-coordinator")
     thread.start()
     return thread
 
 
 def _spawn_demo_bootstrap_thread(config, days: int) -> threading.Thread:
-    """Run demo startup backfill in a daemon thread."""
+    """Run demo startup backfill in a daemon thread.
+
+    스케줄러 autostart 가 비활성일 때만 사용됩니다. 스케줄러가 켜져 있으면
+    ``_spawn_startup_coordinator`` 가 부트스트랩 → startup digest → 스케줄러 시작 순서로
+    직렬 실행합니다.
+    """
     from app.services.scheduled_pipeline import run_demo_bootstrap
 
     def _runner() -> None:
@@ -153,22 +184,32 @@ async def lifespan(app: FastAPI):
     _maybe_reset_state_on_startup()
 
     scheduler_config = None
+    coordinator_started = False
 
-    # SCHEDULER_AUTOSTART=1 환경변수가 있을 때만 시작 시 루프를 자동 시작합니다.
-    # 테스트 환경에서는 이 변수를 설정하지 않으면 루프가 시작되지 않습니다.
+    # SCHEDULER_AUTOSTART=1 환경변수가 있을 때만 부팅 시 코디네이터 스레드를 통해
+    # 부트스트랩 → startup digest → 스케줄러 루프 순서로 직렬 실행합니다. 동시 spawn 으로
+    # 인한 race(같은 날짜 파이프라인 중복 실행, 외부 API rate-limit 노출)를 구조적으로 차단합니다.
     if _is_truthy_env("SCHEDULER_AUTOSTART"):
         from app.api.scheduler import ensure_loop_running, get_scheduler_service
         scheduler = get_scheduler_service()
         if scheduler is not None:
             scheduler_config = scheduler.state.config
-            ensure_loop_running(scheduler)
-            # SCHEDULER_ENABLED=false 로 명시적으로 꺼둔 경우엔 부팅 자동 실행도 건너뛴다.
-            # 그렇지 않으면 스케줄링을 disable 한 의도와 무관하게 부팅이 수집/LLM 호출을
-            # 트리거할 수 있다.
+            # SCHEDULER_ENABLED=false 로 명시적으로 꺼둔 경우엔 부팅 자동 실행과 코디네이터를
+            # 건너뛰고 루프만 가동합니다(스케줄러가 disable 인 의도를 보존).
             if scheduler.state.config.enabled:
-                # 효력 일자 기준 다이제스트가 없으면 즉시 생성 (스케줄 시각을 기다리지 않음).
-                _spawn_startup_digest_thread(scheduler.state.config)
-    _maybe_spawn_demo_bootstrap_on_startup(scheduler_config)
+                demo_days = (
+                    _demo_bootstrap_days_from_env()
+                    if _is_truthy_env("DEMO_BOOTSTRAP_ON_STARTUP")
+                    else 0
+                )
+                _spawn_startup_coordinator(scheduler, demo_days=demo_days)
+                coordinator_started = True
+            else:
+                ensure_loop_running(scheduler)
+
+    # 스케줄러 autostart 가 꺼져 있어도 데모 부트스트랩만 따로 돌리는 경로는 유지합니다.
+    if not coordinator_started:
+        _maybe_spawn_demo_bootstrap_on_startup(scheduler_config)
     try:
         yield
     finally:
