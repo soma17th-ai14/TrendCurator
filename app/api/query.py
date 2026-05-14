@@ -13,6 +13,7 @@ from app.agents.intent_router import IntentRouter
 from app.agents.query_rewriter import QueryRewriter
 from app.agents.retriever import Retriever
 from app.api.documents import get_retriever
+from app.api.responses import ErrorResponse, error_response
 from app.core.solar_client import SolarClient
 from app.core.solar_llm_client import SolarLLMClient
 from app.core.settings import get_solar_settings
@@ -40,7 +41,7 @@ class QueryData(BaseModel):
 class QueryResponse(BaseModel):
     success: bool
     data: QueryData | None = None
-    error: str | None = None
+    error: ErrorResponse | None = None
 
 
 def get_query_runner(retriever: Retriever = Depends(get_retriever)) -> QueryGraphRunner:
@@ -66,7 +67,10 @@ def run_query(
             base_date=request.date_to,
         )
     except Exception as exc:
-        return QueryResponse(success=False, error=str(exc))
+        return QueryResponse(
+            success=False,
+            error=error_response("QUERY_FAILED", str(exc)),
+        )
 
     return QueryResponse(
         success=True,
