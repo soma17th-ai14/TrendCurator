@@ -141,6 +141,26 @@ def test_retriever_uses_content_preview_when_summary_is_empty():
     assert len(result.candidates[0].summary_preview) == 240
 
 
+def test_retriever_excludes_documents_in_exclude_list():
+    """exclude_document_ids 에 포함된 문서는 결과에서 제외돼야 한다."""
+    client = FakeDocumentSearchClient(
+        [
+            _search_result(document_id="doc_keep", title="Keep"),
+            _search_result(document_id="doc_skip", title="Skip"),
+        ]
+    )
+    retriever = DailyDigestRetriever(search_client=client)
+    request = DailyDigestRetrievalRequest(
+        digest_date=date(2026, 5, 6),
+        exclude_document_ids=["doc_skip"],
+    )
+
+    result = retriever.retrieve(request)
+
+    ids = [c.document_id for c in result.candidates]
+    assert ids == ["doc_keep"]
+
+
 def test_retriever_uses_base_query_when_profile_keywords_are_disabled():
     client = FakeDocumentSearchClient([])
     retriever = DailyDigestRetriever(search_client=client)
