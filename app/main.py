@@ -15,6 +15,11 @@ from fastapi import FastAPI
 load_dotenv(".env")
 load_dotenv(".env.local")
 
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
+
 from app.api.dashboard import router as dashboard_router
 from app.api.digest import router as digest_router
 from app.api.documents import router as documents_router
@@ -46,8 +51,55 @@ def _spawn_startup_digest_thread(config) -> threading.Thread:
     return thread
 
 
+def _spawn_demo_bootstrap_thread(config, days: int) -> threading.Thread:
+    """Run demo startup backfill in a daemon thread."""
+    from app.services.scheduled_pipeline import run_demo_bootstrap
+
+    def _runner() -> None:
+        try:
+            run_demo_bootstrap(config, days=days)
+        except Exception as exc:  # pragma: no cover - run_demo_bootstrap handles per-date failures.
+            logger.warning("demo bootstrap thread error: %s", exc)
+
+    thread = threading.Thread(target=_runner, daemon=True, name="demo-bootstrap")
+    thread.start()
+    return thread
+
+
 def _is_truthy_env(name: str) -> bool:
     return os.getenv(name, "").lower() in ("1", "true", "yes")
+
+
+def _demo_bootstrap_days_from_env() -> int:
+    raw_value = os.getenv("DEMO_BOOTSTRAP_DAYS", "5")
+    try:
+        days = int(raw_value)
+    except ValueError:
+        logger.warning("invalid DEMO_BOOTSTRAP_DAYS=%s, using 5", raw_value)
+        return 5
+    if days < 0:
+        logger.warning("invalid DEMO_BOOTSTRAP_DAYS=%s, skipping demo bootstrap", raw_value)
+        return 0
+    return days
+
+
+def _maybe_spawn_demo_bootstrap_on_startup(config=None) -> threading.Thread | None:
+    if not _is_truthy_env("DEMO_BOOTSTRAP_ON_STARTUP"):
+        return None
+
+    if config is None:
+        try:
+            from app.core.scheduler_settings import load_scheduler_config_from_env
+
+            config = load_scheduler_config_from_env()
+        except Exception as exc:
+            logger.warning("demo bootstrap: scheduler config load failed: %s", exc)
+            return None
+
+    days = _demo_bootstrap_days_from_env()
+    if days <= 0:
+        return None
+    return _spawn_demo_bootstrap_thread(config, days)
 
 
 def _maybe_reset_state_on_startup() -> None:
@@ -100,12 +152,15 @@ async def lifespan(app: FastAPI):
     # SCHEDULER_AUTOSTART 와 독립적으로 동작한다.
     _maybe_reset_state_on_startup()
 
+    scheduler_config = None
+
     # SCHEDULER_AUTOSTART=1 환경변수가 있을 때만 시작 시 루프를 자동 시작합니다.
     # 테스트 환경에서는 이 변수를 설정하지 않으면 루프가 시작되지 않습니다.
     if _is_truthy_env("SCHEDULER_AUTOSTART"):
         from app.api.scheduler import ensure_loop_running, get_scheduler_service
         scheduler = get_scheduler_service()
         if scheduler is not None:
+            scheduler_config = scheduler.state.config
             ensure_loop_running(scheduler)
             # SCHEDULER_ENABLED=false 로 명시적으로 꺼둔 경우엔 부팅 자동 실행도 건너뛴다.
             # 그렇지 않으면 스케줄링을 disable 한 의도와 무관하게 부팅이 수집/LLM 호출을
@@ -113,6 +168,7 @@ async def lifespan(app: FastAPI):
             if scheduler.state.config.enabled:
                 # 효력 일자 기준 다이제스트가 없으면 즉시 생성 (스케줄 시각을 기다리지 않음).
                 _spawn_startup_digest_thread(scheduler.state.config)
+    _maybe_spawn_demo_bootstrap_on_startup(scheduler_config)
     try:
         yield
     finally:

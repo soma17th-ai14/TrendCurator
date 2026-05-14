@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from app.agents.chunker import Chunker
 from app.agents.digest_generator import SolarProDigestGenerator
@@ -188,6 +188,54 @@ def run_startup_digest(config: SchedulerConfig) -> str | None:
     except PipelineRunError as exc:
         logger.warning("부팅 자동 실행: 다이제스트 생성 실패 (%s) — 정상 스케줄 사이클에서 재시도됩니다.", exc)
         return None
+
+
+def demo_bootstrap_dates(
+    config: SchedulerConfig,
+    *,
+    days: int = 5,
+    now: datetime | None = None,
+) -> list[date]:
+    """Return previous digest dates for demo startup backfill."""
+    if days <= 0:
+        return []
+
+    end_date = effective_digest_date(config, now=now)
+    start_date = end_date - timedelta(days=days)
+    return [start_date + timedelta(days=offset) for offset in range(days)]
+
+
+def run_demo_bootstrap(config: SchedulerConfig, *, days: int = 5) -> list[str]:
+    """Generate missing digests for the previous ``days`` dates."""
+    if days <= 0:
+        logger.info("demo bootstrap: skipped because days=%d", days)
+        return []
+
+    settings: Settings = get_settings()
+    store = FileDigestStore(settings.digest_data_path)
+    generated: list[str] = []
+
+    for target_date in demo_bootstrap_dates(config, days=days):
+        digest_id = f"digest_{target_date:%Y%m%d}"
+        try:
+            if store.get(digest_id) is not None:
+                logger.info("demo bootstrap: digest already exists, skipped %s", digest_id)
+                continue
+        except Exception as exc:
+            logger.warning("demo bootstrap: failed to inspect %s (%s), running pipeline", digest_id, exc)
+
+        logger.info("demo bootstrap: generating %s", digest_id)
+        try:
+            result = run_pipeline(target_date, config)
+        except PipelineRunError as exc:
+            logger.warning("demo bootstrap: failed to generate %s (%s)", digest_id, exc)
+            continue
+
+        if result is not None:
+            generated.append(result)
+
+    logger.info("demo bootstrap: generated %d digest(s)", len(generated))
+    return generated
 
 
 def _fallback_digest(request):

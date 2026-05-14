@@ -61,6 +61,28 @@ def test_solar_mini_llm_relevance_filter_uses_configured_model():
     assert "판정 기준" in client.calls[0]["messages"][0].content
 
 
+def test_solar_mini_llm_relevance_filter_logs_request_and_result(caplog):
+    client = FakeSolarJsonClient(
+        {
+            "is_relevant": True,
+            "score": 0.93,
+            "matched_keywords": ["langgraph"],
+            "reason": "LangGraph agent workflow를 다룹니다.",
+        }
+    )
+    settings = SolarSettings(api_key="test-key", mini_model="solar-mini-test")
+    filter_ = SolarMiniLLMRelevanceFilter(client=client, settings=settings)
+
+    with caplog.at_level("INFO", logger="app.agents.solar_relevance_filter"):
+        filter_.filter([make_document()])
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("solar relevance: batch start count=1 model=solar-mini-test" in message for message in messages)
+    assert any("solar relevance: request doc_id=doc_001" in message for message in messages)
+    assert any("solar relevance: result doc_id=doc_001" in message for message in messages)
+    assert any("solar relevance: batch done count=1 relevant_count=1" in message for message in messages)
+
+
 def test_solar_mini_llm_relevance_filter_reuses_system_prompt(monkeypatch):
     load_count = 0
 
