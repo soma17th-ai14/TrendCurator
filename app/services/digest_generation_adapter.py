@@ -43,6 +43,14 @@ class DigestGenerationAdapter:
         )
         source_document_ids = [candidate.document_id for candidate in retrieval_result.candidates]
 
+        # Groundedness 검사 단계에서 generation_result.groundedness_score 를 채워야 합니다.
+        # 검사가 누락된 채 어댑터로 진입하는 것은 호출 측 버그이므로 명시적으로 막습니다.
+        if generation_result.groundedness_score is None:
+            raise ValueError(
+                "Digest 생성 결과의 groundedness_score 가 비어 있습니다. "
+                "Groundedness 검사 후 어댑터를 호출해야 합니다."
+            )
+
         return DigestGenerationRunResult(
             digest_id=generation_result.digest_id,
             date=generation_result.date,

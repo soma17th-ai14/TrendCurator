@@ -43,9 +43,21 @@ def _config(sources: tuple[str, ...] = ("huggingface",)) -> SchedulerConfig:
     return SchedulerConfig(enabled=True, time="00:01", timezone="UTC", sources=sources)
 
 
+class _EmptyDigestStore:
+    """run_pipeline 의 early-return 가드를 우회하기 위한 stub. 항상 '없음'을 반환합니다."""
+
+    def get(self, _digest_id):
+        return None
 
 
-def test_run_pipeline_raises_when_collection_stage_fails(monkeypatch):
+@pytest.fixture
+def stub_empty_digest_store(monkeypatch):
+    monkeypatch.setattr(
+        scheduled_pipeline, "FileDigestStore", lambda _path: _EmptyDigestStore()
+    )
+
+
+def test_run_pipeline_raises_when_collection_stage_fails(monkeypatch, stub_empty_digest_store):
     """수집 단계 자체가 예외를 던지면 PipelineRunError로 전파한다."""
 
     async def boom(target_date: date, sources: list[str] | None = None):
@@ -57,7 +69,7 @@ def test_run_pipeline_raises_when_collection_stage_fails(monkeypatch):
         run_pipeline(date(2026, 5, 14), _config())
 
 
-def test_run_pipeline_raises_when_all_sources_fail(monkeypatch):
+def test_run_pipeline_raises_when_all_sources_fail(monkeypatch, stub_empty_digest_store):
     """선택된 모든 소스가 실패하면 PipelineRunError를 raise하여 재시도를 허용한다."""
     monkeypatch.setattr(scheduled_pipeline, "COLLECTORS", [_FailingCollector()])
 
@@ -222,6 +234,76 @@ def test_collect_recent_digest_document_ids_handles_store_errors():
         _PartiallyBrokenStore(), date(2026, 5, 14), lookback_days=2
     )
     assert result == ["doc_c"]
+
+
+def test_run_pipeline_skips_when_digest_already_exists(monkeypatch):
+    """락 획득 직후 같은 날짜 다이제스트가 이미 있으면 파이프라인을 다시 돌리지 않는다.
+
+    부팅 startup 스레드가 막 생성을 끝낸 직후 scheduler loop 가 같은 날짜로 진입했을 때
+    Solar Pro 호출이 두 번 일어나는 것을 방지하기 위한 가드의 동작을 검증합니다.
+    """
+
+    class _StoreWithExistingDigest:
+        def get(self, digest_id):
+            return object()  # truthy → "이미 있음"
+
+    class _FakeSettings:
+        digest_data_path = "/tmp/ignored"
+
+    fetch_calls = {"count": 0}
+
+    async def _should_not_fetch(target_date, sources=None):
+        fetch_calls["count"] += 1
+        return [], []
+
+    monkeypatch.setattr(scheduled_pipeline, "get_settings", lambda: _FakeSettings())
+    monkeypatch.setattr(scheduled_pipeline, "FileDigestStore", lambda _path: _StoreWithExistingDigest())
+    monkeypatch.setattr(scheduled_pipeline, "fetch_all_documents", _should_not_fetch)
+
+    result = run_pipeline(date(2026, 5, 14), _config())
+
+    assert result == "digest_20260514"
+    assert fetch_calls["count"] == 0  # 수집 단계까지 진입하지 않아야 함
+
+
+def test_run_pipeline_serializes_concurrent_calls(monkeypatch):
+    """두 스레드가 동시에 run_pipeline 을 호출해도 직렬화되어 한 번에 하나만 실행된다."""
+    import threading
+
+    in_flight = {"count": 0, "max": 0}
+    lock = threading.Lock()
+    started = threading.Event()
+
+    def _slow_locked_runner(run_date, config):
+        with lock:
+            in_flight["count"] += 1
+            in_flight["max"] = max(in_flight["max"], in_flight["count"])
+        started.set()
+        # 두 스레드가 정말 직렬화되는지 확인하려면 두 번째 스레드가 락 대기 중인 상태에서
+        # 첫 번째가 끝나야 한다. 짧은 sleep 으로 동시 진입 기회를 의도적으로 만든다.
+        import time as _time
+        _time.sleep(0.05)
+        with lock:
+            in_flight["count"] -= 1
+        return f"digest_{run_date:%Y%m%d}"
+
+    monkeypatch.setattr(scheduled_pipeline, "_run_pipeline_locked", _slow_locked_runner)
+
+    results: list[str | None] = [None, None]
+
+    def _call(idx: int):
+        results[idx] = run_pipeline(date(2026, 5, 14), _config())
+
+    t1 = threading.Thread(target=_call, args=(0,))
+    t2 = threading.Thread(target=_call, args=(1,))
+    t1.start()
+    started.wait(timeout=1.0)
+    t2.start()
+    t1.join(timeout=2.0)
+    t2.join(timeout=2.0)
+
+    assert results == ["digest_20260514", "digest_20260514"]
+    assert in_flight["max"] == 1  # 동시 진입 0 — 한 번에 하나만 실행
 
 
 def test_fallback_digest_uses_korean_placeholders():

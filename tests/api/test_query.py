@@ -251,3 +251,33 @@ def test_query_graph_uses_date_range_parser_and_period_retriever():
     assert state["intent"] == "TREND_COMPARISON"
     assert state["comparison_metadata"]["period_a"]["start"] == "2026-04-27"
     assert state["comparison_metadata"]["period_b"]["end"] == "2026-05-10"
+
+
+def test_short_period_disclaimer_added_for_1day_vs_1day():
+    """비교 기간이 너무 짧으면(예: 1일 vs 1일) 답변 머리에 디스클레이머가 붙는다."""
+    from app.graphs.query_graph import _short_period_disclaimer
+
+    disclaimer = _short_period_disclaimer({
+        "period_a": {"start": "2026-05-13", "end": "2026-05-13"},
+        "period_b": {"start": "2026-05-14", "end": "2026-05-14"},
+    })
+    assert "표본이 적습니다" in disclaimer
+
+
+def test_short_period_disclaimer_skipped_for_normal_7day_window():
+    """기본 7일 윈도우에서는 디스클레이머가 붙지 않는다."""
+    from app.graphs.query_graph import _short_period_disclaimer
+
+    disclaimer = _short_period_disclaimer({
+        "period_a": {"start": "2026-04-27", "end": "2026-05-03"},
+        "period_b": {"start": "2026-05-04", "end": "2026-05-10"},
+    })
+    assert disclaimer == ""
+
+
+def test_short_period_disclaimer_skipped_when_metadata_missing():
+    """기간 메타가 비어 있으면 빈 문자열을 반환한다."""
+    from app.graphs.query_graph import _short_period_disclaimer
+
+    assert _short_period_disclaimer({}) == ""
+    assert _short_period_disclaimer({"period_a": {}, "period_b": {}}) == ""

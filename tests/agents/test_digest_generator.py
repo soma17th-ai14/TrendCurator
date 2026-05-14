@@ -78,7 +78,6 @@ def _response_payload(**overrides) -> dict:
                 "llm_model": "solar-pro-3",
             }
         ],
-        "groundedness_score": 0.0,
     }
     base.update(overrides)
     return base
@@ -217,8 +216,8 @@ def test_load_solar_pro_digest_prompt_contains_output_contract():
     assert "명시된 근거 없음" in prompt
     assert "기존 기술 대비 차별점 및 한계" in prompt
     assert "일반 템플릿 문구" in prompt
-    assert "groundedness_score" in prompt
-    assert "항상 `0.0`" in prompt
+    # groundedness_score 는 검증 단계에서 추가되므로 LLM 출력에 포함시키지 않습니다.
+    assert "응답에 포함하지 않습니다" in prompt
 
 
 def test_generator_calls_configured_digest_model_and_parses_response():

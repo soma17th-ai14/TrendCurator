@@ -245,26 +245,30 @@ class QueryGraphRunner:
             return state
 
         if self._llm_client is not None:
-            state["answer"] = _run_async(self._generate_answer_llm(state, docs))
-            return state
-
-        if state["intent"] == "TREND_COMPARISON":
+            answer = _run_async(self._generate_answer_llm(state, docs))
+        elif state["intent"] == "TREND_COMPARISON":
             metadata = state.get("comparison_metadata", {})
             new_trends = ", ".join(metadata.get("new_trends", [])) or "신규 트렌드 없음"
             declining = ", ".join(metadata.get("declining_trends", [])) or "감소 트렌드 없음"
-            state["answer"] = (
+            answer = (
                 "두 기간의 검색 문서를 비교한 결과입니다. "
                 f"최근 기간의 주요 시그널: {new_trends}. "
                 f"이전 대비 약화된 시그널: {declining}. "
                 "아래 출처 문서를 참고하여 해석하세요."
             )
-            return state
+        else:
+            top_docs = docs[: min(3, len(docs))]
+            bullets = " ".join(
+                f"{doc['title']}: {doc['summary_preview']}" for doc in top_docs
+            )
+            answer = f"검색된 문서 기반 요약: {bullets}"
 
-        top_docs = docs[: min(3, len(docs))]
-        bullets = " ".join(
-            f"{doc['title']}: {doc['summary_preview']}" for doc in top_docs
-        )
-        state["answer"] = f"검색된 문서 기반 요약: {bullets}"
+        if state["intent"] == "TREND_COMPARISON":
+            disclaimer = _short_period_disclaimer(state.get("comparison_metadata", {}))
+            if disclaimer:
+                answer = f"{disclaimer}\n\n{answer}"
+
+        state["answer"] = answer
         return state
 
     async def _generate_answer_llm(
@@ -281,10 +285,16 @@ class QueryGraphRunner:
             prompt = (
                 "당신은 AI 트렌드 분석 전문가입니다.\n"
                 "두 기간의 문서를 비교하여 트렌드 변화를 한국어로 요약하세요.\n"
-                "문서에 없는 사실을 추가하지 마세요.\n"
-                "[트렌드 시그널 요약]은 시스템이 두 기간 문서의 태그 빈도를 비교해 계산한 결과입니다.\n"
-                "이 시그널을 답변에 반영하되, 시그널과 문서 내용이 충돌하면 문서 내용을 우선하세요.\n\n"
-                f"질문: {question}\n\n"
+                "\n"
+                "작성 규칙:\n"
+                "- 문서에 없는 사실을 추가하지 마세요. 추론은 문서가 직접 언급한 범위 안에서만 합니다.\n"
+                "- 영문 약어가 처음 나올 때는 한국어 부연을 짧게 괄호로 덧붙입니다. 문서에 풀네임이 있을 때만 사용합니다.\n"
+                "- 양 기간에 동일한 키워드가 등장하더라도, 어떤 측면이 새로 부각됐는지 또는 약화됐는지를 구분해 서술합니다.\n"
+                "- [트렌드 시그널 요약] 은 시스템이 두 기간 문서의 태그 빈도를 비교해 계산한 결과입니다. 이 시그널을 답변에 반영하되, 시그널과 문서 내용이 충돌하면 문서 내용을 우선합니다.\n"
+                "- '신규 부상 트렌드 / 약화된 시그널 / 두 기간 공통 흐름' 세 축으로 묶어 정리하면 가독성이 좋습니다(강제 아님).\n"
+                "\n"
+                f"질문: {question}\n"
+                "\n"
                 f"{metadata_block}\n"
                 f"[이전 기간 문서]\n{context_a}\n\n"
                 f"[최근 기간 문서]\n{context_b}"
@@ -295,8 +305,16 @@ class QueryGraphRunner:
             prompt = (
                 "당신은 AI 트렌드 분석 전문가입니다.\n"
                 "아래 검색된 문서를 근거로 질문에 한국어로 답변하세요.\n"
-                "문서에 없는 사실을 추가하지 마세요.\n\n"
-                f"질문: {question}\n\n"
+                "\n"
+                "작성 규칙:\n"
+                "- 문서에 없는 사실, 수치, 인용을 추가하지 마세요.\n"
+                "- 질문이 특정 기술·논문·개념을 가리키면, 그것을 다룬 문서를 우선해 인용합니다.\n"
+                "- 영문 약어는 첫 등장 시 한국어 부연을 짧게 덧붙입니다(문서에 풀네임이 있을 때만).\n"
+                "- 검색된 문서 모두가 질문과 관련이 약하다면, 그 사실을 답변 머리에 한 문장으로 알리고 가장 가까운 문서만 인용합니다.\n"
+                "- 동일 출처의 여러 문서를 묶지 말고, 문서별로 어떤 관점·결과를 주는지 구분해서 씁니다.\n"
+                "\n"
+                f"질문: {question}\n"
+                "\n"
                 f"검색 문서:\n{context}"
             )
         return await self._llm_client.complete(prompt)
@@ -544,6 +562,46 @@ def _is_small_talk(question: str) -> bool:
         "hi",
         "hey",
     }
+
+
+# 두 비교 기간 중 어느 한쪽이라도 이 일수 이하이면 "표본 부족" 디스클레이머를 답변에 붙입니다.
+# 기본 비교 윈도우가 7일 vs 7일이라, 그보다 훨씬 짧은 1~2일 윈도우는 트렌드라기보다 일변동에 가까움.
+_SHORT_PERIOD_THRESHOLD_DAYS = 2
+
+
+def _short_period_disclaimer(metadata: dict[str, Any]) -> str:
+    """비교 기간이 너무 짧을 때 답변 머리에 붙일 디스클레이머 문구를 반환합니다.
+
+    어느 한 기간이라도 ``_SHORT_PERIOD_THRESHOLD_DAYS`` 일 이하이면 단편적 비교임을 알리는
+    문구를 반환합니다. 기간 정보가 없거나 파싱이 안 되면 빈 문자열을 돌려 호출 측에서 그대로
+    스킵하도록 합니다.
+    """
+    period_a = metadata.get("period_a") or {}
+    period_b = metadata.get("period_b") or {}
+    span_a = _period_span_days(period_a)
+    span_b = _period_span_days(period_b)
+    if span_a is None or span_b is None:
+        return ""
+    if min(span_a, span_b) > _SHORT_PERIOD_THRESHOLD_DAYS:
+        return ""
+    return (
+        "ℹ️ 비교 기간이 짧아(각 기간 최대 "
+        f"{max(span_a, span_b)}일) 표본이 적습니다. 아래 결과는 단편적인 비교이며, "
+        "트렌드 변화로 해석할 때 주의가 필요합니다."
+    )
+
+
+def _period_span_days(period: dict[str, Any]) -> int | None:
+    start = period.get("start")
+    end = period.get("end")
+    if not start or not end:
+        return None
+    try:
+        start_d = date.fromisoformat(start)
+        end_d = date.fromisoformat(end)
+    except (TypeError, ValueError):
+        return None
+    return (end_d - start_d).days + 1  # inclusive day count
 
 
 def _format_comparison_metadata(metadata: dict[str, Any]) -> str:
