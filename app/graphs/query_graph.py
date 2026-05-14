@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections import Counter
 from datetime import date, timedelta
 from typing import Any, Literal, Protocol, TypedDict
@@ -29,6 +30,8 @@ from app.services.period_retriever import (
 
 
 Intent = Literal["GENERAL_QA", "TREND_COMPARISON"]
+logger = logging.getLogger(__name__)
+VALID_SEARCH_SOURCES = {"huggingface", "hackernews"}
 
 
 class QueryGraphState(TypedDict, total=False):
@@ -47,6 +50,7 @@ class QueryGraphState(TypedDict, total=False):
     sources: list[dict[str, Any]]
     comparison_metadata: dict[str, Any]
     warnings: list[str]
+    skip_groundedness: bool
 
 
 class SearchClient(Protocol):
@@ -92,6 +96,17 @@ class QueryGraphRunner:
             "top_k": top_k,
             "base_date": base_date or date.today(),
         }
+        if _is_small_talk(question):
+            return {
+                **state,
+                "intent": "GENERAL_QA",
+                "answer": "안녕하세요. AI 트렌드, 수집 문서, 다이제스트에 대해 궁금한 내용을 물어보세요.",
+                "retrieved_docs": [],
+                "sources": [],
+                "groundedness_score": 1.0,
+                "groundedness_passed": True,
+                "skip_groundedness": True,
+            }
         if self._graph is None:
             return self._run_sequential(state)
         return self._graph.invoke(state)
@@ -143,8 +158,19 @@ class QueryGraphRunner:
                 _append_warning(state, f"IntentRouter fallback: {exc}")
 
         question = state["question"].lower()
-        trend_markers = ["비교", "지난주", "이번 주", "변화", "트렌드", "대비", "compare", "trend"]
-        state["intent"] = "TREND_COMPARISON" if any(marker in question for marker in trend_markers) else "GENERAL_QA"
+        comparison_markers = [
+            "compare",
+            "comparison",
+            "vs",
+            "versus",
+            "비교",
+            "대비",
+            "변화",
+            "지난주",
+            "이번 주",
+            "이번주",
+        ]
+        state["intent"] = "TREND_COMPARISON" if any(marker in question for marker in comparison_markers) else "GENERAL_QA"
         return state
 
     def _retrieve_general(self, state: QueryGraphState) -> QueryGraphState:
@@ -250,11 +276,16 @@ class QueryGraphRunner:
             docs_b = [d for d in docs if d.get("period") == "period_b"]
             context_a = _build_context(docs_a)
             context_b = _build_context(docs_b)
+            metadata = state.get("comparison_metadata") or {}
+            metadata_block = _format_comparison_metadata(metadata)
             prompt = (
                 "당신은 AI 트렌드 분석 전문가입니다.\n"
                 "두 기간의 문서를 비교하여 트렌드 변화를 한국어로 요약하세요.\n"
-                "문서에 없는 사실을 추가하지 마세요.\n\n"
+                "문서에 없는 사실을 추가하지 마세요.\n"
+                "[트렌드 시그널 요약]은 시스템이 두 기간 문서의 태그 빈도를 비교해 계산한 결과입니다.\n"
+                "이 시그널을 답변에 반영하되, 시그널과 문서 내용이 충돌하면 문서 내용을 우선하세요.\n\n"
                 f"질문: {question}\n\n"
+                f"{metadata_block}\n"
                 f"[이전 기간 문서]\n{context_a}\n\n"
                 f"[최근 기간 문서]\n{context_b}"
             )
@@ -271,6 +302,11 @@ class QueryGraphRunner:
         return await self._llm_client.complete(prompt)
 
     def _check_groundedness(self, state: QueryGraphState) -> QueryGraphState:
+        if state.get("skip_groundedness"):
+            state.setdefault("groundedness_score", 1.0)
+            state.setdefault("groundedness_passed", True)
+            return state
+
         docs = state.get("retrieved_docs", [])
         result = self._groundedness.check(GroundednessCheckRequest(
             answer=state.get("answer", ""),
@@ -283,10 +319,16 @@ class QueryGraphRunner:
 
     def _safe_search(self, state: QueryGraphState, **kwargs: Any) -> list[DigestSearchResult]:
         try:
-            return self._search_client.search(**kwargs)
+            results = self._search_client.search(**kwargs)
         except Exception as exc:
+            logger.warning("query search skipped: kwargs=%s error=%s", kwargs, exc)
             _append_warning(state, f"Search skipped: {exc}")
             return []
+        if not results:
+            message = _empty_search_warning(kwargs)
+            logger.warning("query search returned no documents: %s", message)
+            _append_warning(state, message)
+        return results
 
     def _rewrite_query(self, state: QueryGraphState) -> str:
         if self._query_rewriter is None:
@@ -301,7 +343,11 @@ class QueryGraphRunner:
         if result.optimized_queries:
             sources = result.search_filter.get("sources")
             if isinstance(sources, list) and all(isinstance(source, str) for source in sources):
-                state["search_sources"] = sources
+                valid_sources = [source for source in sources if source in VALID_SEARCH_SOURCES]
+                if valid_sources:
+                    state["search_sources"] = valid_sources
+                elif sources:
+                    _append_warning(state, f"QueryRewriter ignored invalid source filters: {sources}")
             return result.optimized_queries[0]
         return state["question"]
 
@@ -466,6 +512,67 @@ def _fallback_keywords(text: str) -> list[str]:
 
 def _append_warning(state: QueryGraphState, message: str) -> None:
     state.setdefault("warnings", []).append(message)
+
+
+def _empty_search_warning(kwargs: dict[str, Any]) -> str:
+    query = kwargs.get("query", "")
+    date_from = kwargs.get("date_from")
+    date_to = kwargs.get("date_to")
+    sources = kwargs.get("sources")
+    categories = kwargs.get("categories")
+    parts = [f"Search returned no documents for query={query!r}"]
+    if date_from is not None:
+        parts.append(f"date_from={date_from}")
+    if date_to is not None:
+        parts.append(f"date_to={date_to}")
+    if sources:
+        parts.append(f"sources={sources}")
+    if categories:
+        parts.append(f"categories={categories}")
+    return " ".join(parts)
+
+
+def _is_small_talk(question: str) -> bool:
+    normalized = question.strip().lower()
+    normalized = normalized.rstrip("!.?。！？~ ")
+    return normalized in {
+        "안녕",
+        "안녕하세요",
+        "하이",
+        "ㅎㅇ",
+        "hello",
+        "hi",
+        "hey",
+    }
+
+
+def _format_comparison_metadata(metadata: dict[str, Any]) -> str:
+    """LLM 프롬프트에 주입할 트렌드 시그널 요약 블록을 만듭니다.
+
+    시스템이 태그 빈도로 계산한 new_trends/declining_trends 를 LLM 답변 근거로 노출합니다.
+    메타데이터가 비어 있으면 빈 문자열을 반환하여 프롬프트 길이를 늘리지 않습니다.
+    """
+    new_trends = metadata.get("new_trends") or []
+    declining = metadata.get("declining_trends") or []
+    period_a = metadata.get("period_a") or {}
+    period_b = metadata.get("period_b") or {}
+    if not (new_trends or declining or period_a or period_b):
+        return ""
+
+    parts = ["[트렌드 시그널 요약]"]
+    if period_a.get("start") and period_a.get("end"):
+        parts.append(f"- 이전 기간: {period_a['start']} ~ {period_a['end']}")
+    if period_b.get("start") and period_b.get("end"):
+        parts.append(f"- 최근 기간: {period_b['start']} ~ {period_b['end']}")
+    parts.append(
+        "- 최근 기간에서 새로 부상한 태그: "
+        + (", ".join(new_trends) if new_trends else "(없음)")
+    )
+    parts.append(
+        "- 이전 대비 약화된 태그: "
+        + (", ".join(declining) if declining else "(없음)")
+    )
+    return "\n".join(parts) + "\n"
 
 
 def _build_context(docs: list[dict[str, Any]]) -> str:

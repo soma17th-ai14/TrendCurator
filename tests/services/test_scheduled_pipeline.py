@@ -9,6 +9,7 @@ import pytest
 
 from app.services import scheduled_pipeline
 from app.services.scheduled_pipeline import PipelineRunError, run_pipeline
+from app.core.models import DigestCandidate, SolarProDigestGenerationRequest
 from app.services.scheduler import (
     SchedulerConfig,
     SchedulerService,
@@ -40,6 +41,8 @@ class _EmptyCollector:
 
 def _config(sources: tuple[str, ...] = ("huggingface",)) -> SchedulerConfig:
     return SchedulerConfig(enabled=True, time="00:01", timezone="UTC", sources=sources)
+
+
 
 
 def test_run_pipeline_raises_when_collection_stage_fails(monkeypatch):
@@ -94,3 +97,164 @@ def test_run_due_updates_last_run_at_on_success():
     assert result.ran is True
     assert result.job_id == "digest_20260514"
     assert service.state.last_run_at is not None
+
+
+def test_generate_with_retry_returns_first_success(monkeypatch):
+    """첫 시도가 성공하면 추가 호출 없이 결과를 반환한다."""
+    calls = {"count": 0}
+
+    class _OkGenerator:
+        @classmethod
+        def from_settings(cls, _settings):
+            return cls()
+
+        def generate(self, _request):
+            calls["count"] += 1
+            return "ok-result"
+
+    monkeypatch.setattr(scheduled_pipeline, "SolarProDigestGenerator", _OkGenerator)
+    monkeypatch.setattr(scheduled_pipeline, "get_solar_settings", lambda: object())
+
+    assert scheduled_pipeline._generate_with_retry(object()) == "ok-result"
+    assert calls["count"] == 1
+
+
+def test_generate_with_retry_recovers_after_transient_failure(monkeypatch):
+    """일시 실패 후 재시도 성공 시 fallback 으로 빠지지 않는다."""
+    calls = {"count": 0}
+
+    class _FlakyGenerator:
+        @classmethod
+        def from_settings(cls, _settings):
+            return cls()
+
+        def generate(self, _request):
+            calls["count"] += 1
+            if calls["count"] < 2:
+                raise RuntimeError("transient")
+            return "recovered"
+
+    monkeypatch.setattr(scheduled_pipeline, "SolarProDigestGenerator", _FlakyGenerator)
+    monkeypatch.setattr(scheduled_pipeline, "get_solar_settings", lambda: object())
+    monkeypatch.setattr(scheduled_pipeline.time, "sleep", lambda _s: None)
+
+    assert scheduled_pipeline._generate_with_retry(object()) == "recovered"
+    assert calls["count"] == 2
+
+
+def test_generate_with_retry_falls_back_after_max_attempts(monkeypatch):
+    """최대 시도 횟수 후에도 실패하면 한국어 fallback 결과를 반환한다."""
+    calls = {"count": 0}
+
+    class _BrokenGenerator:
+        @classmethod
+        def from_settings(cls, _settings):
+            return cls()
+
+        def generate(self, _request):
+            calls["count"] += 1
+            raise RuntimeError("permanent")
+
+    sentinel = object()
+
+    monkeypatch.setattr(scheduled_pipeline, "SolarProDigestGenerator", _BrokenGenerator)
+    monkeypatch.setattr(scheduled_pipeline, "get_solar_settings", lambda: object())
+    monkeypatch.setattr(scheduled_pipeline, "_fallback_digest", lambda _req: sentinel)
+    monkeypatch.setattr(scheduled_pipeline.time, "sleep", lambda _s: None)
+
+    assert scheduled_pipeline._generate_with_retry(object()) is sentinel
+    assert calls["count"] == scheduled_pipeline._SOLAR_PRO_MAX_ATTEMPTS
+
+
+class _StubDigestStore:
+    """``_collect_recent_digest_document_ids`` 가 호출하는 ``get(digest_id)`` 만 구현한 페이크."""
+
+    def __init__(self, entries: dict[str, list[str]] | None = None) -> None:
+        self._entries = entries or {}
+
+    def get(self, digest_id: str):
+        doc_ids = self._entries.get(digest_id)
+        if doc_ids is None:
+            return None
+
+        class _Result:
+            def __init__(self, ids: list[str]) -> None:
+                self.source_document_ids = ids
+
+        return _Result(doc_ids)
+
+
+def test_collect_recent_digest_document_ids_aggregates_and_dedupes():
+    """직전 N일 다이제스트의 source_document_ids 를 합집합으로 모으고, 중복은 한 번만 포함한다."""
+    store = _StubDigestStore(
+        {
+            "digest_20260513": ["doc_a", "doc_b"],
+            "digest_20260512": ["doc_b", "doc_c"],
+        }
+    )
+
+    result = scheduled_pipeline._collect_recent_digest_document_ids(
+        store, date(2026, 5, 14), lookback_days=2
+    )
+
+    assert set(result) == {"doc_a", "doc_b", "doc_c"}
+    assert len(result) == 3
+
+
+def test_collect_recent_digest_document_ids_returns_empty_when_no_history():
+    """이전 다이제스트가 없으면 빈 리스트를 반환한다."""
+    result = scheduled_pipeline._collect_recent_digest_document_ids(
+        _StubDigestStore(), date(2026, 5, 14), lookback_days=2
+    )
+    assert result == []
+
+
+def test_collect_recent_digest_document_ids_handles_store_errors():
+    """저장소 조회가 실패해도 다른 일자는 계속 시도하고 fatal 하지 않다."""
+
+    class _PartiallyBrokenStore:
+        def get(self, digest_id: str):
+            if digest_id.endswith("13"):
+                raise RuntimeError("disk error")
+            return _StubDigestStore({"digest_20260512": ["doc_c"]}).get(digest_id)
+
+    result = scheduled_pipeline._collect_recent_digest_document_ids(
+        _PartiallyBrokenStore(), date(2026, 5, 14), lookback_days=2
+    )
+    assert result == ["doc_c"]
+
+
+def test_fallback_digest_uses_korean_placeholders():
+    candidate = DigestCandidate(
+        document_id="doc_001",
+        source="huggingface",
+        title="PyRAG: Programmatic Retrieval Augmented Generation",
+        url="https://example.com/pyrag",
+        published_at=date(2026, 5, 14),
+        content=(
+            "ly with how code-specialized language models are trained to operate. "
+            "Motivated by this, we introduce PyRAG."
+        ),
+        summary_preview=(
+            "ly with how code-specialized language models are trained to operate. "
+            "Motivated by this, we introduce PyRAG."
+        ),
+        similarity_score=0.9,
+        relevance_score=0.9,
+        matched_keywords=["RAG", "program synthesis"],
+        tags=[],
+    )
+    request = SolarProDigestGenerationRequest(
+        digest_date=date(2026, 5, 14),
+        language="ko",
+        candidates=[candidate],
+    )
+
+    result = scheduled_pipeline._fallback_digest(request)
+    item = result.items[0]
+
+    assert item.summary.startswith("PyRAG: Programmatic Retrieval Augmented Generation 문서에서 확인된 내용입니다.")
+    assert item.contribution == "명시된 근거 없음"
+    assert item.benchmark == "명시된 근거 없음"
+    assert item.critique == "명시된 근거 없음"
+    assert "Not stated in source" not in item.model_dump_json()

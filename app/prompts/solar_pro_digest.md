@@ -44,6 +44,7 @@
       "llm_model": "solar-pro-3"
     }
   ],
+  "language": "ko",
   "groundedness_score": 0.0
 }
 ```
@@ -64,6 +65,7 @@
 - `critique`를 작성할 때는 문서 안의 표현이나 사실에 직접 연결되는 구체적인 내용을 씁니다.
 - `evidence_document_ids`에는 해당 항목 작성에 사용한 후보 문서 id를 넣습니다.
 - `llm_model`은 항상 `"solar-pro-3"`로 반환합니다.
+- `language`는 항상 `ko`로 반환합니다. 
 - `groundedness_score`는 검증 단계에서 갱신하므로 이 단계에서는 항상 `0.0`으로 둡니다.
 
 ## 근거 부족 처리 예시

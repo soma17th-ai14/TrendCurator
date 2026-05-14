@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest -q -p no:cacheprovider)",
+      "Bash(python -m pytest tests/services/test_digest_store.py -q -p no:cacheprovider)",
+      "Bash(python -m pytest tests/api/test_scheduler.py tests/test_scheduler_settings.py -v -p no:cacheprovider)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(gh pr *)",
+      "WebFetch(domain:github.com)",
+      "Bash(python -m pytest tests/api/test_scheduler.py tests/test_scheduler_settings.py -q -p no:cacheprovider)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)",
+      "Bash(python -m pytest tests/api/test_profile.py tests/api/test_digest.py -v -p no:cacheprovider)",
+      "Bash(python -m uvicorn app.main:app --reload --port 8000)",
+      "Bash(python -m streamlit run frontend/streamlit_app.py --server.port 8501)",
+      "Bash(timeout 5)",
+      "Bash(Start-Sleep -Seconds 4)",
+      "Bash(Get-Content \"C:\\\\Users\\\\saki0\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-saki0-Documents-GitHub-TrendCurator\\\\7cc07ecc-09ea-460f-b383-00be314fbc6e\\\\tasks\\\\b0o32hbhu.output\" -Tail 8)",
+      "Bash(git revert *)",
+      "Bash(git rebase *)",
+      "Bash(python *)",
+      "Bash(git commit *)",
+      "PowerShell(Stop-Process *)",
+      "Bash(gh api *)",
+      "Bash(C:\\\\Python314\\\\python.exe -m pytest tests/services/test_scheduled_pipeline.py tests/api/test_scheduler.py tests/services/test_scheduler_loop.py -v)",
+      "PowerShell(C:\\\\Python314\\\\python.exe -m pytest tests/services/test_scheduled_pipeline.py tests/api/test_scheduler.py tests/services/test_scheduler_loop.py -v 2>&1 | Select-Object -Last 80)",
+      "PowerShell(C:\\\\Python314\\\\python.exe -m pytest 2>&1 | Select-Object -Last 30)",
+      "PowerShell(C:\\\\Python314\\\\python.exe -m pytest tests/services/test_scheduler_effective_date.py tests/services/test_startup_digest.py tests/services/test_scheduled_pipeline.py tests/api/test_dashboard.py tests/api/test_scheduler.py tests/services/test_scheduler_loop.py -v 2>&1 | Select-Object -Last 60)",
+      "PowerShell(C:\\\\Python314\\\\python.exe -m pytest 2>&1 | Select-Object -Last 5)",
+      "PowerShell(C:\\\\Python314\\\\python.exe -m pytest tests/core/test_chroma_client.py tests/test_main_lifespan_reset.py tests/services/ tests/api/ -v 2>&1 | Select-Object -Last 80)",
+      "PowerShell(C:\\\\Python314\\\\python.exe -m pytest 2>&1 | Select-Object -Last 3)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(C:\\\\Python314\\\\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001)",
+      "PowerShell(C:\\\\Python314\\\\python.exe -m streamlit run frontend/streamlit_app.py --server.port 8501)",
+      "PowerShell(Test-NetConnection *)",
+      "PowerShell(C:\\\\Python314\\\\python.exe -m pytest tests/test_main_lifespan_reset.py tests/core/test_chroma_client.py tests/api/test_dashboard.py tests/services/test_scheduler_effective_date.py tests/services/test_startup_digest.py tests/services/test_scheduled_pipeline.py -v 2>&1 | Select-Object -Last 50)",
+      "PowerShell(Get-CimInstance *)"
+    ]
+  }
+}

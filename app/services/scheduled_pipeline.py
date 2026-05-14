@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import date, datetime, timezone
+import time
+from datetime import date, datetime, timedelta, timezone
 
 from app.agents.chunker import Chunker
 from app.agents.digest_generator import SolarProDigestGenerator
@@ -32,6 +33,17 @@ from app.services.profile_store import FileProfileStore
 from app.services.scheduler import SchedulerConfig, effective_digest_date
 
 logger = logging.getLogger(__name__)
+
+# Solar Pro 다이제스트 생성 실패 시 재시도 횟수.
+# 일시적 네트워크/쿼터 오류를 흡수하되, 영구적 오류(인증·파서 등)에서는 빠르게 fallback 으로 넘어가도록
+# 보수적으로 3회로 둡니다. 모두 실패하면 `_fallback_digest()` 가 한국어 placeholder 결과를 만듭니다.
+_SOLAR_PRO_MAX_ATTEMPTS = 3
+_SOLAR_PRO_RETRY_BACKOFF_SECONDS = 2.0
+
+# 같은 문서가 연이은 다이제스트에서 다시 1위로 뽑히는 것을 막기 위해, 이전 N일 다이제스트에 선정됐던
+# document_id 를 후보 풀에서 제외합니다. lookback_days(1) 보다 1 더 길게 잡아 게시일이 살짝 늦게
+# 잡힌 문서도 다음 날 디지스트에서 다시 등장하지 않도록 합니다.
+_DIGEST_DEDUP_LOOKBACK_DAYS = 2
 
 
 class PipelineRunError(RuntimeError):
@@ -122,23 +134,23 @@ def run_pipeline(run_date: date, config: SchedulerConfig) -> str | None:
         language = profile.language if profile else "ko"
 
         retriever = Retriever(EmbeddingClient(settings), ChromaClient(settings))
+        digest_store = FileDigestStore(settings.digest_data_path)
+        exclude_document_ids = _collect_recent_digest_document_ids(
+            digest_store, run_date, lookback_days=_DIGEST_DEDUP_LOOKBACK_DAYS
+        )
         retrieval = DailyDigestRetriever(retriever).retrieve(DailyDigestRetrievalRequest(
             digest_date=run_date,
             top_k=10,
             profile_based=True,
             keywords=keywords,
             sources=list(config.sources),
+            exclude_document_ids=exclude_document_ids,
         ))
 
         adapter = DigestGenerationAdapter(language=language)
         generation_request = adapter.to_generation_request(retrieval, profile_keywords=keywords)
 
-        try:
-            generator = SolarProDigestGenerator.from_settings(get_solar_settings())
-            generation_result = generator.generate(generation_request)
-        except Exception as gen_exc:
-            logger.warning("스케줄러: LLM 생성 실패, fallback 사용 (%s)", gen_exc)
-            generation_result = _fallback_digest(generation_request)
+        generation_result = _generate_with_retry(generation_request)
 
         grounding = GroundednessChecker().check(GroundednessCheckRequest(
             answer=" ".join(item.summary for item in generation_result.items),
@@ -150,7 +162,7 @@ def run_pipeline(run_date: date, config: SchedulerConfig) -> str | None:
             retrieval_result=retrieval,
             generation_result=generation_result,
         )
-        FileDigestStore(settings.digest_data_path).save(run_result)
+        digest_store.save(run_result)
         logger.info("스케줄러: 다이제스트 저장 완료 — %s", run_result.digest_id)
         return run_result.digest_id
 
@@ -190,6 +202,126 @@ def run_startup_digest(config: SchedulerConfig) -> str | None:
         return None
 
 
+def demo_bootstrap_dates(
+    config: SchedulerConfig,
+    *,
+    days: int = 5,
+    now: datetime | None = None,
+) -> list[date]:
+    """Return previous digest dates for demo startup backfill."""
+    if days <= 0:
+        return []
+
+    end_date = effective_digest_date(config, now=now)
+    start_date = end_date - timedelta(days=days)
+    return [start_date + timedelta(days=offset) for offset in range(days)]
+
+
+def run_demo_bootstrap(config: SchedulerConfig, *, days: int = 5) -> list[str]:
+    """Generate missing digests for the previous ``days`` dates."""
+    if days <= 0:
+        logger.info("demo bootstrap: skipped because days=%d", days)
+        return []
+
+    settings: Settings = get_settings()
+    store = FileDigestStore(settings.digest_data_path)
+    generated: list[str] = []
+
+    for target_date in demo_bootstrap_dates(config, days=days):
+        digest_id = f"digest_{target_date:%Y%m%d}"
+        try:
+            if store.get(digest_id) is not None:
+                logger.info("demo bootstrap: digest already exists, skipped %s", digest_id)
+                continue
+        except Exception as exc:
+            logger.warning("demo bootstrap: failed to inspect %s (%s), running pipeline", digest_id, exc)
+
+        logger.info("demo bootstrap: generating %s", digest_id)
+        try:
+            result = run_pipeline(target_date, config)
+        except PipelineRunError as exc:
+            logger.warning("demo bootstrap: failed to generate %s (%s)", digest_id, exc)
+            continue
+
+        if result is not None:
+            generated.append(result)
+
+    logger.info("demo bootstrap: generated %d digest(s)", len(generated))
+    return generated
+
+
+def _collect_recent_digest_document_ids(
+    store: FileDigestStore,
+    run_date: date,
+    *,
+    lookback_days: int,
+) -> list[str]:
+    """직전 ``lookback_days`` 일자의 다이제스트에서 선정된 문서 id 들을 모아 중복 제거 후 반환합니다.
+
+    저장소 조회 실패는 fatal 이 아닙니다 — 중복 제거는 디지스트 품질 개선 목적이지 정확성 보장은 아니므로,
+    조회 실패 시 빈 리스트로 fallback 하여 파이프라인 자체는 계속 진행시킵니다.
+    """
+    if lookback_days <= 0:
+        return []
+
+    collected: list[str] = []
+    seen: set[str] = set()
+    for offset in range(1, lookback_days + 1):
+        prev_date = run_date - timedelta(days=offset)
+        digest_id = f"digest_{prev_date:%Y%m%d}"
+        try:
+            prev = store.get(digest_id)
+        except Exception as exc:
+            logger.warning(
+                "다이제스트 중복 제거: 이전 다이제스트 조회 실패 — %s (%s)", digest_id, exc
+            )
+            continue
+        if prev is None:
+            continue
+        for doc_id in prev.source_document_ids:
+            if doc_id and doc_id not in seen:
+                seen.add(doc_id)
+                collected.append(doc_id)
+    if collected:
+        logger.info(
+            "다이제스트 중복 제거: 직전 %d일 다이제스트의 %d개 문서를 후보에서 제외합니다.",
+            lookback_days,
+            len(collected),
+        )
+    return collected
+
+
+def _generate_with_retry(generation_request):
+    """Solar Pro 다이제스트 생성을 재시도하고, 모두 실패하면 fallback 결과를 반환합니다.
+
+    무한 루프를 피하기 위해 시도 횟수를 제한하며, 각 실패 사이에 짧은 백오프를 둡니다.
+    영구적인 오류(인증/쿼터/파서)인 경우에도 ``_SOLAR_PRO_MAX_ATTEMPTS`` 회만에 fallback 으로 넘어갑니다.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(1, _SOLAR_PRO_MAX_ATTEMPTS + 1):
+        try:
+            generator = SolarProDigestGenerator.from_settings(get_solar_settings())
+            return generator.generate(generation_request)
+        except Exception as gen_exc:
+            last_exc = gen_exc
+            if attempt < _SOLAR_PRO_MAX_ATTEMPTS:
+                logger.warning(
+                    "스케줄러: LLM 생성 실패 (시도 %d/%d, %s) — 재시도합니다.",
+                    attempt,
+                    _SOLAR_PRO_MAX_ATTEMPTS,
+                    gen_exc,
+                )
+                time.sleep(_SOLAR_PRO_RETRY_BACKOFF_SECONDS * attempt)
+            else:
+                logger.warning(
+                    "스케줄러: LLM 생성 %d회 모두 실패 (%s) — fallback 사용.",
+                    _SOLAR_PRO_MAX_ATTEMPTS,
+                    gen_exc,
+                )
+    assert last_exc is not None
+    return _fallback_digest(generation_request)
+
+
 def _fallback_digest(request):
     from app.core.models import DigestItem, SolarProDigestGenerationResult
 
@@ -205,11 +337,11 @@ def _fallback_digest(request):
                 source=c.source,
                 url=c.url,
                 published_at=c.published_at,
-                summary=c.summary_preview or c.content[:240],
-                key_points=[c.summary_preview or c.content[:160]],
-                contribution="Not stated in source",
-                benchmark="Not stated in source",
-                critique="Not stated in source",
+                summary=_fallback_summary(c),
+                key_points=_fallback_key_points(c),
+                contribution="명시된 근거 없음",
+                benchmark="명시된 근거 없음",
+                critique="명시된 근거 없음",
                 tags=c.tags or c.matched_keywords,
                 evidence_document_ids=[c.document_id],
                 llm_model="solar-pro-3",
@@ -217,3 +349,32 @@ def _fallback_digest(request):
             for c in request.candidates
         ],
     )
+
+
+def _fallback_summary(candidate) -> str:
+    title = candidate.title.strip()
+    preview = _clean_preview(candidate.summary_preview or candidate.content)
+    if preview:
+        return f"{title} 문서에서 확인된 내용입니다. {preview}"
+    return f"{title} 문서입니다. 상세 요약은 Solar Pro 생성이 재시도되면 보강됩니다."
+
+
+def _fallback_key_points(candidate) -> list[str]:
+    points = [f"문서 제목: {candidate.title.strip()}"]
+    keywords = candidate.tags or candidate.matched_keywords
+    if keywords:
+        points.append("관련 키워드: " + ", ".join(keywords[:4]))
+    if candidate.published_at is not None:
+        points.append(f"게시일: {candidate.published_at.isoformat()}")
+    return points
+
+
+def _clean_preview(text: str, limit: int = 220) -> str:
+    compact = " ".join(text.split())
+    if not compact:
+        return ""
+    compact = compact[:limit].strip()
+    sentence_end = max(compact.rfind("."), compact.rfind("!"), compact.rfind("?"))
+    if sentence_end >= 80:
+        compact = compact[: sentence_end + 1]
+    return compact

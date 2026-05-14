@@ -60,6 +60,7 @@ class DailyDigestRetriever:
         candidates = self._rank_candidates(
             search_results=search_results,
             min_relevance_score=request.min_relevance_score,
+            exclude_document_ids=set(request.exclude_document_ids),
         )
         selected_candidates = candidates[: request.top_k]
 
@@ -83,10 +84,14 @@ class DailyDigestRetriever:
         *,
         search_results: list[DigestSearchResult],
         min_relevance_score: float,
+        exclude_document_ids: set[str] | None = None,
     ) -> list[DigestCandidate]:
+        excluded = exclude_document_ids or set()
         unique_results: dict[str, DigestSearchResult] = {}
         for result in search_results:
             if result.relevance_score < min_relevance_score:
+                continue
+            if result.document_id in excluded:
                 continue
 
             previous = unique_results.get(result.document_id)

@@ -50,6 +50,7 @@ class DailyDigestRetrievalRequest(BaseModel):
     keywords: list[str] = Field(default_factory=list)
     sources: list[Source] = Field(default_factory=list)
     min_relevance_score: float = Field(default=0.18, ge=0.0, le=1.0)
+    exclude_document_ids: list[str] = Field(default_factory=list)
 
 
 class DailyDigestRetrievalResult(BaseModel):

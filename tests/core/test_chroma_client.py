@@ -5,6 +5,7 @@ EphemeralClient 기반으로 실제 ChromaDB 로직을 검증한다.
 """
 
 import uuid
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -190,3 +191,34 @@ def test_get_texts_by_document_ids(client):
     texts = client.get_texts_by_document_ids(["doc_001"])
 
     assert texts == ["first context", "second context"]
+
+
+def test_search_refreshes_collection_once_on_stale_hnsw_error():
+    settings = type(
+        "SettingsStub",
+        (),
+        {
+            "solar_api_key": "test",
+            "chroma_data_path": "unused",
+            "chroma_collection_name": "trendcurator",
+        },
+    )()
+    stale_collection = MagicMock()
+    fresh_collection = MagicMock()
+    stale_collection.query.side_effect = RuntimeError("Error creating hnsw segment reader: Nothing found on disk")
+    fresh_collection.query.return_value = {
+        "ids": [["chunk_001"]],
+        "documents": [["Killswitch: Per-function short-circuit mitigation primitive"]],
+        "distances": [[0.1]],
+        "metadatas": [[{"document_id": "doc_001", "title": "Killswitch"}]],
+    }
+    fake_client = MagicMock()
+    fake_client.get_or_create_collection.side_effect = [stale_collection, fresh_collection]
+
+    client = ChromaClient(settings, client=fake_client)
+    results = client.search(query_vector=FAKE_VECTOR, top_k=1)
+
+    assert results[0].chunk_id == "chunk_001"
+    assert fake_client.get_or_create_collection.call_count == 2
+    stale_collection.query.assert_called_once()
+    fresh_collection.query.assert_called_once()

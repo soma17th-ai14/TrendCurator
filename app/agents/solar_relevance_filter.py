@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cached_property
+import logging
 import math
 from pathlib import Path
 from typing import Protocol
@@ -15,6 +16,7 @@ from app.core.solar_client import SolarClient, SolarMessage
 
 
 PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "solar_mini_relevance.md"
+logger = logging.getLogger(__name__)
 
 
 class SolarJsonClient(Protocol):
@@ -62,6 +64,13 @@ class SolarMiniLLMRelevanceFilter:
         # Solar 응답이 일부 필드를 누락하거나 타입이 흔들려도
         # 파이프라인이 깨지지 않도록 로컬 fallback 판정을 기본값으로 사용합니다.
         fallback = self.fallback_filter.evaluate(document)
+        logger.info(
+            "solar relevance: request doc_id=%s source=%s model=%s fallback_score=%.4f",
+            document.doc_id,
+            document.source,
+            self.settings.mini_model,
+            fallback.score,
+        )
         try:
             result = self.client.chat_json(
                 model=self.settings.mini_model,
@@ -74,11 +83,23 @@ class SolarMiniLLMRelevanceFilter:
         except Exception as exc:
             if not self.fallback_on_error:
                 raise RuntimeError("Solar 관련성 필터 호출이 실패했습니다.") from exc
+            logger.warning(
+                "solar relevance: fallback after request error doc_id=%s source=%s error=%s",
+                document.doc_id,
+                document.source,
+                exc,
+            )
             return fallback
 
         if not isinstance(result, dict):
             if not self.fallback_on_error:
                 raise RuntimeError("Solar 관련성 필터 응답이 JSON 객체가 아닙니다.")
+            logger.warning(
+                "solar relevance: fallback after invalid response doc_id=%s source=%s response_type=%s",
+                document.doc_id,
+                document.source,
+                type(result).__name__,
+            )
             return fallback
 
         if not self.fallback_on_error:
@@ -92,16 +113,33 @@ class SolarMiniLLMRelevanceFilter:
         parsed_is_relevant = self._parse_bool(result.get("is_relevant"), fallback.is_relevant)
         is_relevant = parsed_is_relevant and score >= self.fallback_filter.threshold
 
-        return RelevanceDecision(
+        decision = RelevanceDecision(
             document=document,
             is_relevant=is_relevant,
             score=round(score, 4),
             matched_keywords=[str(keyword) for keyword in matched_keywords],
             reason=str(result.get("reason", fallback.reason)),
         )
+        logger.info(
+            "solar relevance: result doc_id=%s source=%s relevant=%s score=%.4f keyword_count=%d",
+            document.doc_id,
+            document.source,
+            decision.is_relevant,
+            decision.score,
+            len(decision.matched_keywords),
+        )
+        return decision
 
     def filter(self, documents: list[NormalizedDocument]) -> list[RelevanceDecision]:
-        return [decision for decision in map(self.evaluate, documents) if decision.is_relevant]
+        logger.info("solar relevance: batch start count=%d model=%s", len(documents), self.settings.mini_model)
+        decisions = [decision for decision in map(self.evaluate, documents) if decision.is_relevant]
+        logger.info(
+            "solar relevance: batch done count=%d relevant_count=%d model=%s",
+            len(documents),
+            len(decisions),
+            self.settings.mini_model,
+        )
+        return decisions
 
     def _format_document(self, document: NormalizedDocument) -> str:
         return (
@@ -173,6 +211,7 @@ def build_solar_mini_relevance_filter(
 
     if settings is not None:
         if not settings.solar_api_key:
+            logger.info("solar relevance: using local keyword filter because SOLAR_API_KEY is empty")
             return SolarMiniRelevanceFilter()
         solar_settings = SolarSettings(
             api_key=settings.solar_api_key,
@@ -183,8 +222,10 @@ def build_solar_mini_relevance_filter(
         try:
             solar_settings = get_solar_settings()
         except RuntimeError:
+            logger.info("solar relevance: using local keyword filter because Solar settings are unavailable")
             return SolarMiniRelevanceFilter()
 
+    logger.info("solar relevance: using Solar Mini model=%s", solar_settings.mini_model)
     return SolarMiniLLMRelevanceFilter.from_settings(
         solar_settings,
         fallback_on_error=fallback_on_error,

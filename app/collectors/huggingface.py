@@ -29,7 +29,7 @@ class HuggingFaceDailyPapersCollector(BaseCollector):
     source_name: ClassVar[str] = "huggingface"
 
     async def fetch(self, target_date: date) -> list[RawItem]:
-        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT, follow_redirects=True) as client:
             daily_url = DAILY_URL_TEMPLATE.format(date=target_date.isoformat())
             daily_response = await client.get(daily_url)
 

@@ -103,3 +103,31 @@ async def test_fetch_calls_daily_page_then_paper_api(monkeypatch):
     paper_calls = [u for u in call_log if "/api/papers/" in u]
     assert len(daily_calls) == 1
     assert len(paper_calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_fetch_follows_huggingface_redirects(monkeypatch):
+    captured_kwargs = {}
+
+    class FakeAsyncClient:
+        def __init__(self, **kwargs):
+            captured_kwargs.update(kwargs)
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def get(self, url, *args, **kwargs):
+            if "papers?date=" in url:
+                return httpx.Response(400, request=httpx.Request("GET", url))
+            raise AssertionError(f"unexpected URL: {url}")
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+
+    collector = HuggingFaceDailyPapersCollector()
+    items = await collector.fetch(date(2026, 5, 10))
+
+    assert items == []
+    assert captured_kwargs["follow_redirects"] is True

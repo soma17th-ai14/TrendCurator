@@ -135,3 +135,16 @@ def test_search_passes_categories_filter_to_chroma():
 
     call_kwargs = chroma.search.call_args[1]
     assert call_kwargs["where"] == {"category": {"$in": ["agent"]}}
+
+
+def test_search_skips_embedding_when_collection_is_empty():
+    embedding_client = MagicMock()
+    chroma = MagicMock()
+    chroma.count.return_value = 0
+    retriever = Retriever(embedding_client, chroma)
+
+    results = retriever.search(query="today trend summary")
+
+    assert results == []
+    embedding_client.embed_query.assert_not_called()
+    chroma.search.assert_not_called()
