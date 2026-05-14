@@ -84,10 +84,32 @@ def test_put_profile_saves_and_returns_message():
     payload = response.json()
     assert response.status_code == 200
     assert payload["success"] is True
-    assert payload["data"]["message"] == "Profile updated"
+    # 기존 프로필이 없던 상태(이전 keywords=[])에서 신규 키워드가 들어왔으므로 변경으로 간주된다.
+    assert payload["data"]["keywords_changed"] is True
+    assert "재생성" in payload["data"]["message"]
     assert store._profile.keywords == ["AgentBench", "ToolUse"]
     assert store._profile.language == "en"
     assert store._profile.digest_time == "18:00"
+
+
+def test_put_profile_keywords_unchanged_skips_regeneration_notice():
+    """키워드가 그대로면 재생성 안내 문구가 나오지 않는다."""
+    existing = UserProfile(keywords=["AgentBench", "ToolUse"], language="ko", digest_time="09:00")
+    store = FakeProfileStore(existing)
+    app.dependency_overrides[get_profile_store] = lambda: store
+    app.dependency_overrides[get_scheduler_service] = lambda: None
+    try:
+        response = TestClient(app).put(
+            "/api/v1/profile",
+            json={"keywords": ["AgentBench", "ToolUse"], "language": "ko", "digest_time": "09:00"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["data"]["keywords_changed"] is False
+    assert "재생성" not in payload["data"]["message"]
 
 
 def test_put_profile_updates_scheduler_time():

@@ -127,7 +127,16 @@ def _build_query_agents() -> dict[str, object]:
             prompt_template=(
                 "Rewrite the user question into 1-2 concise vector-search queries.\n"
                 "Return JSON with optimized_queries and search_filter.sources.\n"
-                "sources must be a list containing 'huggingface', 'hackernews', or both.\n"
+                "\n"
+                "Rules for search_filter.sources:\n"
+                "- Default: return an EMPTY list [] so search spans ALL sources.\n"
+                "- Only set sources to ['huggingface'] if the question EXPLICITLY mentions "
+                "papers, arxiv, huggingface, or '논문'.\n"
+                "- Only set sources to ['hackernews'] if the question EXPLICITLY mentions "
+                "hackernews, HN, kernel, Linux, system-level topics, or '해커뉴스'.\n"
+                "- When unsure, ALWAYS return []. Do NOT narrow sources based on topic hints.\n"
+                "- General questions about AI/ML/agents/RAG/LLM must return [].\n"
+                "\n"
                 "Question: {query}"
             ),
         ),

@@ -276,11 +276,16 @@ class QueryGraphRunner:
             docs_b = [d for d in docs if d.get("period") == "period_b"]
             context_a = _build_context(docs_a)
             context_b = _build_context(docs_b)
+            metadata = state.get("comparison_metadata") or {}
+            metadata_block = _format_comparison_metadata(metadata)
             prompt = (
                 "당신은 AI 트렌드 분석 전문가입니다.\n"
                 "두 기간의 문서를 비교하여 트렌드 변화를 한국어로 요약하세요.\n"
-                "문서에 없는 사실을 추가하지 마세요.\n\n"
+                "문서에 없는 사실을 추가하지 마세요.\n"
+                "[트렌드 시그널 요약]은 시스템이 두 기간 문서의 태그 빈도를 비교해 계산한 결과입니다.\n"
+                "이 시그널을 답변에 반영하되, 시그널과 문서 내용이 충돌하면 문서 내용을 우선하세요.\n\n"
                 f"질문: {question}\n\n"
+                f"{metadata_block}\n"
                 f"[이전 기간 문서]\n{context_a}\n\n"
                 f"[최근 기간 문서]\n{context_b}"
             )
@@ -539,6 +544,35 @@ def _is_small_talk(question: str) -> bool:
         "hi",
         "hey",
     }
+
+
+def _format_comparison_metadata(metadata: dict[str, Any]) -> str:
+    """LLM 프롬프트에 주입할 트렌드 시그널 요약 블록을 만듭니다.
+
+    시스템이 태그 빈도로 계산한 new_trends/declining_trends 를 LLM 답변 근거로 노출합니다.
+    메타데이터가 비어 있으면 빈 문자열을 반환하여 프롬프트 길이를 늘리지 않습니다.
+    """
+    new_trends = metadata.get("new_trends") or []
+    declining = metadata.get("declining_trends") or []
+    period_a = metadata.get("period_a") or {}
+    period_b = metadata.get("period_b") or {}
+    if not (new_trends or declining or period_a or period_b):
+        return ""
+
+    parts = ["[트렌드 시그널 요약]"]
+    if period_a.get("start") and period_a.get("end"):
+        parts.append(f"- 이전 기간: {period_a['start']} ~ {period_a['end']}")
+    if period_b.get("start") and period_b.get("end"):
+        parts.append(f"- 최근 기간: {period_b['start']} ~ {period_b['end']}")
+    parts.append(
+        "- 최근 기간에서 새로 부상한 태그: "
+        + (", ".join(new_trends) if new_trends else "(없음)")
+    )
+    parts.append(
+        "- 이전 대비 약화된 태그: "
+        + (", ".join(declining) if declining else "(없음)")
+    )
+    return "\n".join(parts) + "\n"
 
 
 def _build_context(docs: list[dict[str, Any]]) -> str:
