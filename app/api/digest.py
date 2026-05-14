@@ -184,7 +184,6 @@ def _fallback_digest(request):
         digest_id=f"digest_{request.digest_date:%Y%m%d}",
         date=request.digest_date,
         title="AI Agent Daily Digest",
-        groundedness_score=0.0,
         items=[
             DigestItem(
                 document_id=candidate.document_id,

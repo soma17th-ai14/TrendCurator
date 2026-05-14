@@ -106,6 +106,17 @@ def test_adapter_builds_digest_run_result_for_followup_layers():
     assert result.digest.items[0].document_id == "doc_001"
 
 
+def test_adapter_rejects_when_groundedness_score_is_missing():
+    """LLM 결과에 score 가 비어 있으면 어댑터가 명시적으로 실패해야 한다."""
+    adapter = DigestGenerationAdapter()
+
+    with pytest.raises(ValueError, match="groundedness_score"):
+        adapter.to_run_result(
+            retrieval_result=_retrieval_result(),
+            generation_result=_generation_result(groundedness_score=None),
+        )
+
+
 def test_adapter_rejects_generation_date_mismatch():
     adapter = DigestGenerationAdapter()
 

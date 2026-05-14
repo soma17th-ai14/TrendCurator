@@ -44,8 +44,7 @@
       "llm_model": "solar-pro-3"
     }
   ],
-  "language": "ko",
-  "groundedness_score": 0.0
+  "language": "ko"
 }
 ```
 
@@ -86,7 +85,7 @@
 - `evidence_document_ids` 에는 해당 항목 작성에 사용한 후보 문서 id 를 넣습니다.
 - `llm_model` 은 항상 `"solar-pro-3"` 로 반환합니다.
 - `language` 는 항상 `ko` 로 반환합니다.
-- `groundedness_score` 는 검증 단계에서 갱신하므로 이 단계에서는 항상 `0.0` 으로 둡니다.
+- `groundedness_score` 필드는 응답에 포함하지 않습니다. 검증 단계에서 추가됩니다.
 
 ## 근거 부족 처리
 
@@ -96,5 +95,3 @@
 - 문서가 데이터셋·태스크·비교 baseline 을 언급함 → `benchmark` 에 그 설정을 적습니다.
 - 문서가 적용 조건·가정·실험 범위·추론 비용 trade-off 를 언급함 → `critique` 에 그 조건을 적습니다.
 - 문서가 새로운 모듈·알고리즘·평가 방식을 제시함 → `contribution` 에 그 핵심을 적습니다.
-
-입력에 없는 `groundedness_score` 를 추정하지 않습니다.
