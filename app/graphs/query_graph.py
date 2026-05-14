@@ -245,26 +245,30 @@ class QueryGraphRunner:
             return state
 
         if self._llm_client is not None:
-            state["answer"] = _run_async(self._generate_answer_llm(state, docs))
-            return state
-
-        if state["intent"] == "TREND_COMPARISON":
+            answer = _run_async(self._generate_answer_llm(state, docs))
+        elif state["intent"] == "TREND_COMPARISON":
             metadata = state.get("comparison_metadata", {})
             new_trends = ", ".join(metadata.get("new_trends", [])) or "신규 트렌드 없음"
             declining = ", ".join(metadata.get("declining_trends", [])) or "감소 트렌드 없음"
-            state["answer"] = (
+            answer = (
                 "두 기간의 검색 문서를 비교한 결과입니다. "
                 f"최근 기간의 주요 시그널: {new_trends}. "
                 f"이전 대비 약화된 시그널: {declining}. "
                 "아래 출처 문서를 참고하여 해석하세요."
             )
-            return state
+        else:
+            top_docs = docs[: min(3, len(docs))]
+            bullets = " ".join(
+                f"{doc['title']}: {doc['summary_preview']}" for doc in top_docs
+            )
+            answer = f"검색된 문서 기반 요약: {bullets}"
 
-        top_docs = docs[: min(3, len(docs))]
-        bullets = " ".join(
-            f"{doc['title']}: {doc['summary_preview']}" for doc in top_docs
-        )
-        state["answer"] = f"검색된 문서 기반 요약: {bullets}"
+        if state["intent"] == "TREND_COMPARISON":
+            disclaimer = _short_period_disclaimer(state.get("comparison_metadata", {}))
+            if disclaimer:
+                answer = f"{disclaimer}\n\n{answer}"
+
+        state["answer"] = answer
         return state
 
     async def _generate_answer_llm(
@@ -544,6 +548,46 @@ def _is_small_talk(question: str) -> bool:
         "hi",
         "hey",
     }
+
+
+# 두 비교 기간 중 어느 한쪽이라도 이 일수 이하이면 "표본 부족" 디스클레이머를 답변에 붙입니다.
+# 기본 비교 윈도우가 7일 vs 7일이라, 그보다 훨씬 짧은 1~2일 윈도우는 트렌드라기보다 일변동에 가까움.
+_SHORT_PERIOD_THRESHOLD_DAYS = 2
+
+
+def _short_period_disclaimer(metadata: dict[str, Any]) -> str:
+    """비교 기간이 너무 짧을 때 답변 머리에 붙일 디스클레이머 문구를 반환합니다.
+
+    어느 한 기간이라도 ``_SHORT_PERIOD_THRESHOLD_DAYS`` 일 이하이면 단편적 비교임을 알리는
+    문구를 반환합니다. 기간 정보가 없거나 파싱이 안 되면 빈 문자열을 돌려 호출 측에서 그대로
+    스킵하도록 합니다.
+    """
+    period_a = metadata.get("period_a") or {}
+    period_b = metadata.get("period_b") or {}
+    span_a = _period_span_days(period_a)
+    span_b = _period_span_days(period_b)
+    if span_a is None or span_b is None:
+        return ""
+    if min(span_a, span_b) > _SHORT_PERIOD_THRESHOLD_DAYS:
+        return ""
+    return (
+        "ℹ️ 비교 기간이 짧아(각 기간 최대 "
+        f"{max(span_a, span_b)}일) 표본이 적습니다. 아래 결과는 단편적인 비교이며, "
+        "트렌드 변화로 해석할 때 주의가 필요합니다."
+    )
+
+
+def _period_span_days(period: dict[str, Any]) -> int | None:
+    start = period.get("start")
+    end = period.get("end")
+    if not start or not end:
+        return None
+    try:
+        start_d = date.fromisoformat(start)
+        end_d = date.fromisoformat(end)
+    except (TypeError, ValueError):
+        return None
+    return (end_d - start_d).days + 1  # inclusive day count
 
 
 def _format_comparison_metadata(metadata: dict[str, Any]) -> str:
