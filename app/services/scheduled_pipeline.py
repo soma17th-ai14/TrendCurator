@@ -51,6 +51,11 @@ _DIGEST_DEDUP_LOOKBACK_DAYS = 2
 # 대한 저장 race 가 발생할 수 있어 운영 모드에서는 반드시 필요한 안전장치입니다.
 _RUN_PIPELINE_LOCK = threading.Lock()
 
+# demo bootstrap 에서 일자별 파이프라인 사이에 두는 휴지기(초).
+# 별도 timeout/rate-limit 장치 없이 N일치를 연속 실행하면, 직전 일자의 LLM 호출이 남긴 부하로
+# 다음 일자 다이제스트가 영문 placeholder 로 떨어지는 사례가 있어 일자 사이를 짧게 띄웁니다.
+_DEMO_BOOTSTRAP_INTER_DAY_DELAY_SECONDS = 10.0
+
 
 class PipelineRunError(RuntimeError):
     """스케줄러가 호출한 파이프라인이 복구 가능한 hard failure로 종료될 때 발생합니다.
@@ -332,7 +337,8 @@ def run_demo_bootstrap(config: SchedulerConfig, *, days: int = 5) -> list[str]:
     store = FileDigestStore(settings.digest_data_path)
     generated: list[str] = []
 
-    for target_date in demo_bootstrap_dates(config, days=days):
+    target_dates = list(demo_bootstrap_dates(config, days=days))
+    for index, target_date in enumerate(target_dates):
         digest_id = f"digest_{target_date:%Y%m%d}"
         try:
             if store.get(digest_id) is not None:
@@ -342,14 +348,23 @@ def run_demo_bootstrap(config: SchedulerConfig, *, days: int = 5) -> list[str]:
             logger.warning("demo bootstrap: failed to inspect %s (%s), running pipeline", digest_id, exc)
 
         logger.info("demo bootstrap: generating %s", digest_id)
+        ran_pipeline = False
+        result: str | None = None
         try:
             result = run_pipeline(target_date, config)
+            ran_pipeline = True
         except PipelineRunError as exc:
             logger.warning("demo bootstrap: failed to generate %s (%s)", digest_id, exc)
-            continue
 
         if result is not None:
             generated.append(result)
+
+        if ran_pipeline and index < len(target_dates) - 1:
+            logger.info(
+                "demo bootstrap: sleeping %.1fs before next date",
+                _DEMO_BOOTSTRAP_INTER_DAY_DELAY_SECONDS,
+            )
+            time.sleep(_DEMO_BOOTSTRAP_INTER_DAY_DELAY_SECONDS)
 
     logger.info("demo bootstrap: generated %d digest(s)", len(generated))
     return generated
