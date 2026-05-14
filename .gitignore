@@ -9,3 +9,7 @@ chroma_data/
 .pytest_cache/
 .DS_Store
 .scratch/
+
+# 런타임 산출물 — 매 부팅/실행마다 재생성되므로 추적 대상이 아님
+data/digests/
+data/collection_status.json
