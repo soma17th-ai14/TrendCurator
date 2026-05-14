@@ -6,12 +6,15 @@ digest_retriever.DigestSearchResult 형식으로 결과를 반환한다.
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 
 from app.core.chroma_client import ChromaClient
 from app.core.embedding_client import EmbeddingClient
 from app.core.models import Source
 from app.services.digest_retriever import DigestSearchResult
+
+logger = logging.getLogger(__name__)
 
 
 class Retriever:
@@ -31,6 +34,19 @@ class Retriever:
         sources: list[Source] | None = None,
         categories: list[str] | None = None,
     ) -> list[DigestSearchResult]:
+        collection_count = _collection_count(self._chroma)
+        if collection_count == 0:
+            logger.warning(
+                "retriever search skipped because Chroma collection is empty: "
+                "query=%r date_from=%s date_to=%s sources=%s categories=%s",
+                query,
+                date_from,
+                date_to,
+                sources,
+                categories,
+            )
+            return []
+
         query_vector = self._embedding.embed_query(query)
         where = _build_where(date_from, date_to, sources, categories)
         # 날짜 필터는 Python 후처리로 적용하므로 여분을 확보
@@ -38,6 +54,20 @@ class Retriever:
         raw = self._chroma.search(query_vector, top_k=fetch_k, where=where)
         deduped = _deduplicate(raw, fetch_k)
         filtered = _filter_by_date(deduped, date_from, date_to)
+        logger.info(
+            "retriever search complete: query=%r date_from=%s date_to=%s "
+            "sources=%s categories=%s collection_count=%s raw=%d deduped=%d filtered=%d returned=%d",
+            query,
+            date_from,
+            date_to,
+            sources,
+            categories,
+            collection_count,
+            len(raw),
+            len(deduped),
+            len(filtered),
+            min(len(filtered), top_k),
+        )
         return filtered[:top_k]
 
 
@@ -79,6 +109,18 @@ def _filter_by_date(
             continue
         filtered.append(r)
     return filtered
+
+
+def _collection_count(chroma: ChromaClient) -> int | None:
+    count = getattr(chroma, "count", None)
+    if not callable(count):
+        return None
+    try:
+        value = count()
+    except Exception as exc:
+        logger.warning("retriever could not read Chroma collection count: %s", exc)
+        return None
+    return value if isinstance(value, int) else None
 
 
 

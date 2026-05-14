@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections import Counter
 from datetime import date, timedelta
 from typing import Any, Literal, Protocol, TypedDict
@@ -29,6 +30,8 @@ from app.services.period_retriever import (
 
 
 Intent = Literal["GENERAL_QA", "TREND_COMPARISON"]
+logger = logging.getLogger(__name__)
+VALID_SEARCH_SOURCES = {"huggingface", "hackernews"}
 
 
 class QueryGraphState(TypedDict, total=False):
@@ -47,6 +50,7 @@ class QueryGraphState(TypedDict, total=False):
     sources: list[dict[str, Any]]
     comparison_metadata: dict[str, Any]
     warnings: list[str]
+    skip_groundedness: bool
 
 
 class SearchClient(Protocol):
@@ -92,6 +96,17 @@ class QueryGraphRunner:
             "top_k": top_k,
             "base_date": base_date or date.today(),
         }
+        if _is_small_talk(question):
+            return {
+                **state,
+                "intent": "GENERAL_QA",
+                "answer": "안녕하세요. AI 트렌드, 수집 문서, 다이제스트에 대해 궁금한 내용을 물어보세요.",
+                "retrieved_docs": [],
+                "sources": [],
+                "groundedness_score": 1.0,
+                "groundedness_passed": True,
+                "skip_groundedness": True,
+            }
         if self._graph is None:
             return self._run_sequential(state)
         return self._graph.invoke(state)
@@ -143,8 +158,19 @@ class QueryGraphRunner:
                 _append_warning(state, f"IntentRouter fallback: {exc}")
 
         question = state["question"].lower()
-        trend_markers = ["비교", "지난주", "이번 주", "변화", "트렌드", "대비", "compare", "trend"]
-        state["intent"] = "TREND_COMPARISON" if any(marker in question for marker in trend_markers) else "GENERAL_QA"
+        comparison_markers = [
+            "compare",
+            "comparison",
+            "vs",
+            "versus",
+            "비교",
+            "대비",
+            "변화",
+            "지난주",
+            "이번 주",
+            "이번주",
+        ]
+        state["intent"] = "TREND_COMPARISON" if any(marker in question for marker in comparison_markers) else "GENERAL_QA"
         return state
 
     def _retrieve_general(self, state: QueryGraphState) -> QueryGraphState:
@@ -271,6 +297,11 @@ class QueryGraphRunner:
         return await self._llm_client.complete(prompt)
 
     def _check_groundedness(self, state: QueryGraphState) -> QueryGraphState:
+        if state.get("skip_groundedness"):
+            state.setdefault("groundedness_score", 1.0)
+            state.setdefault("groundedness_passed", True)
+            return state
+
         docs = state.get("retrieved_docs", [])
         result = self._groundedness.check(GroundednessCheckRequest(
             answer=state.get("answer", ""),
@@ -283,10 +314,16 @@ class QueryGraphRunner:
 
     def _safe_search(self, state: QueryGraphState, **kwargs: Any) -> list[DigestSearchResult]:
         try:
-            return self._search_client.search(**kwargs)
+            results = self._search_client.search(**kwargs)
         except Exception as exc:
+            logger.warning("query search skipped: kwargs=%s error=%s", kwargs, exc)
             _append_warning(state, f"Search skipped: {exc}")
             return []
+        if not results:
+            message = _empty_search_warning(kwargs)
+            logger.warning("query search returned no documents: %s", message)
+            _append_warning(state, message)
+        return results
 
     def _rewrite_query(self, state: QueryGraphState) -> str:
         if self._query_rewriter is None:
@@ -301,7 +338,11 @@ class QueryGraphRunner:
         if result.optimized_queries:
             sources = result.search_filter.get("sources")
             if isinstance(sources, list) and all(isinstance(source, str) for source in sources):
-                state["search_sources"] = sources
+                valid_sources = [source for source in sources if source in VALID_SEARCH_SOURCES]
+                if valid_sources:
+                    state["search_sources"] = valid_sources
+                elif sources:
+                    _append_warning(state, f"QueryRewriter ignored invalid source filters: {sources}")
             return result.optimized_queries[0]
         return state["question"]
 
@@ -466,6 +507,38 @@ def _fallback_keywords(text: str) -> list[str]:
 
 def _append_warning(state: QueryGraphState, message: str) -> None:
     state.setdefault("warnings", []).append(message)
+
+
+def _empty_search_warning(kwargs: dict[str, Any]) -> str:
+    query = kwargs.get("query", "")
+    date_from = kwargs.get("date_from")
+    date_to = kwargs.get("date_to")
+    sources = kwargs.get("sources")
+    categories = kwargs.get("categories")
+    parts = [f"Search returned no documents for query={query!r}"]
+    if date_from is not None:
+        parts.append(f"date_from={date_from}")
+    if date_to is not None:
+        parts.append(f"date_to={date_to}")
+    if sources:
+        parts.append(f"sources={sources}")
+    if categories:
+        parts.append(f"categories={categories}")
+    return " ".join(parts)
+
+
+def _is_small_talk(question: str) -> bool:
+    normalized = question.strip().lower()
+    normalized = normalized.rstrip("!.?。！？~ ")
+    return normalized in {
+        "안녕",
+        "안녕하세요",
+        "하이",
+        "ㅎㅇ",
+        "hello",
+        "hi",
+        "hey",
+    }
 
 
 def _build_context(docs: list[dict[str, Any]]) -> str:

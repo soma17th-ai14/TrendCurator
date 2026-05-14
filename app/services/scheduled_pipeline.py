@@ -253,11 +253,11 @@ def _fallback_digest(request):
                 source=c.source,
                 url=c.url,
                 published_at=c.published_at,
-                summary=c.summary_preview or c.content[:240],
-                key_points=[c.summary_preview or c.content[:160]],
-                contribution="Not stated in source",
-                benchmark="Not stated in source",
-                critique="Not stated in source",
+                summary=_fallback_summary(c),
+                key_points=_fallback_key_points(c),
+                contribution="명시된 근거 없음",
+                benchmark="명시된 근거 없음",
+                critique="명시된 근거 없음",
                 tags=c.tags or c.matched_keywords,
                 evidence_document_ids=[c.document_id],
                 llm_model="solar-pro-3",
@@ -265,3 +265,32 @@ def _fallback_digest(request):
             for c in request.candidates
         ],
     )
+
+
+def _fallback_summary(candidate) -> str:
+    title = candidate.title.strip()
+    preview = _clean_preview(candidate.summary_preview or candidate.content)
+    if preview:
+        return f"{title} 문서에서 확인된 내용입니다. {preview}"
+    return f"{title} 문서입니다. 상세 요약은 Solar Pro 생성이 재시도되면 보강됩니다."
+
+
+def _fallback_key_points(candidate) -> list[str]:
+    points = [f"문서 제목: {candidate.title.strip()}"]
+    keywords = candidate.tags or candidate.matched_keywords
+    if keywords:
+        points.append("관련 키워드: " + ", ".join(keywords[:4]))
+    if candidate.published_at is not None:
+        points.append(f"게시일: {candidate.published_at.isoformat()}")
+    return points
+
+
+def _clean_preview(text: str, limit: int = 220) -> str:
+    compact = " ".join(text.split())
+    if not compact:
+        return ""
+    compact = compact[:limit].strip()
+    sentence_end = max(compact.rfind("."), compact.rfind("!"), compact.rfind("?"))
+    if sentence_end >= 80:
+        compact = compact[: sentence_end + 1]
+    return compact

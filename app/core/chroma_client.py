@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 
 import chromadb
 
 from app.core.settings import Settings
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -27,10 +30,8 @@ class ChromaClient:
         client: chromadb.Client | None = None,
     ) -> None:
         self._client = client or chromadb.PersistentClient(path=settings.chroma_data_path)
-        self._collection = self._client.get_or_create_collection(
-            name=settings.chroma_collection_name,
-            metadata={"hnsw:space": "cosine"},
-        )
+        self._collection_name = settings.chroma_collection_name
+        self._collection = self._get_or_create_collection()
 
     @classmethod
     def ephemeral(cls, collection_name: str = "test") -> "ChromaClient":
@@ -87,10 +88,7 @@ class ChromaClient:
             self._client.delete_collection(name)
         except Exception:  # pragma: no cover - 컬렉션이 없을 때도 정상 흐름
             pass
-        self._collection = self._client.get_or_create_collection(
-            name=name,
-            metadata={"hnsw:space": "cosine"},
-        )
+        self._collection = self._get_or_create_collection(name)
 
     def search(
         self,
@@ -103,7 +101,7 @@ class ChromaClient:
         if where:
             kwargs["where"] = where
 
-        results = self._collection.query(**kwargs)
+        results = self._query_with_recovery(kwargs)
 
         search_results = []
         ids = results["ids"][0]
@@ -167,3 +165,24 @@ class ChromaClient:
 
     def delete(self, chunk_ids: list[str]) -> None:
         self._collection.delete(ids=chunk_ids)
+
+    def _get_or_create_collection(self, name: str | None = None):
+        return self._client.get_or_create_collection(
+            name=name or self._collection_name,
+            metadata={"hnsw:space": "cosine"},
+        )
+
+    def _query_with_recovery(self, kwargs: dict):
+        try:
+            return self._collection.query(**kwargs)
+        except Exception as exc:
+            if not _is_stale_hnsw_error(exc):
+                raise
+            logger.warning("Chroma HNSW reader error; refreshing collection handle and retrying: %s", exc)
+            self._collection = self._get_or_create_collection()
+            return self._collection.query(**kwargs)
+
+
+def _is_stale_hnsw_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "hnsw segment reader" in message or "nothing found on disk" in message

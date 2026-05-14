@@ -9,6 +9,7 @@ import pytest
 
 from app.services import scheduled_pipeline
 from app.services.scheduled_pipeline import PipelineRunError, run_pipeline
+from app.core.models import DigestCandidate, SolarProDigestGenerationRequest
 from app.services.scheduler import (
     SchedulerConfig,
     SchedulerService,
@@ -94,3 +95,39 @@ def test_run_due_updates_last_run_at_on_success():
     assert result.ran is True
     assert result.job_id == "digest_20260514"
     assert service.state.last_run_at is not None
+
+
+def test_fallback_digest_uses_korean_placeholders():
+    candidate = DigestCandidate(
+        document_id="doc_001",
+        source="huggingface",
+        title="PyRAG: Programmatic Retrieval Augmented Generation",
+        url="https://example.com/pyrag",
+        published_at=date(2026, 5, 14),
+        content=(
+            "ly with how code-specialized language models are trained to operate. "
+            "Motivated by this, we introduce PyRAG."
+        ),
+        summary_preview=(
+            "ly with how code-specialized language models are trained to operate. "
+            "Motivated by this, we introduce PyRAG."
+        ),
+        similarity_score=0.9,
+        relevance_score=0.9,
+        matched_keywords=["RAG", "program synthesis"],
+        tags=[],
+    )
+    request = SolarProDigestGenerationRequest(
+        digest_date=date(2026, 5, 14),
+        language="ko",
+        candidates=[candidate],
+    )
+
+    result = scheduled_pipeline._fallback_digest(request)
+    item = result.items[0]
+
+    assert item.summary.startswith("PyRAG: Programmatic Retrieval Augmented Generation 문서에서 확인된 내용입니다.")
+    assert item.contribution == "명시된 근거 없음"
+    assert item.benchmark == "명시된 근거 없음"
+    assert item.critique == "명시된 근거 없음"
+    assert "Not stated in source" not in item.model_dump_json()
