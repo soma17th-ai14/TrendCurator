@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 import time
 from datetime import date, datetime, timedelta, timezone
 
@@ -44,6 +45,11 @@ _SOLAR_PRO_RETRY_BACKOFF_SECONDS = 2.0
 # document_id 를 후보 풀에서 제외합니다. lookback_days(1) 보다 1 더 길게 잡아 게시일이 살짝 늦게
 # 잡힌 문서도 다음 날 디지스트에서 다시 등장하지 않도록 합니다.
 _DIGEST_DEDUP_LOOKBACK_DAYS = 2
+
+# 부팅 직후 startup digest 스레드와 scheduler loop 가 같은 날짜 파이프라인을 동시에 실행하지 않도록
+# 직렬화합니다. 동시 실행 시 Solar Pro/Solar Mini API 호출이 2배로 발생하고, 같은 digest_id 에
+# 대한 저장 race 가 발생할 수 있어 운영 모드에서는 반드시 필요한 안전장치입니다.
+_RUN_PIPELINE_LOCK = threading.Lock()
 
 
 class PipelineRunError(RuntimeError):
@@ -89,8 +95,38 @@ def run_pipeline(run_date: date, config: SchedulerConfig) -> str | None:
 
     실패 시 ``PipelineRunError`` 를 raise합니다. 이는 ``SchedulerService.run_due`` 에서
     ``last_run_at`` 갱신을 막아 동일 일자 내 재시도를 허용합니다.
+
+    프로세스 내에서 동시에 두 스레드가 진입하지 못하도록 ``_RUN_PIPELINE_LOCK`` 으로 직렬화합니다.
     """
+    if not _RUN_PIPELINE_LOCK.acquire(blocking=False):
+        logger.info(
+            "스케줄러: 다른 파이프라인 실행이 진행 중이라 대기합니다 — run_date=%s",
+            run_date,
+        )
+        _RUN_PIPELINE_LOCK.acquire()
+    try:
+        return _run_pipeline_locked(run_date, config)
+    finally:
+        _RUN_PIPELINE_LOCK.release()
+
+
+def _run_pipeline_locked(run_date: date, config: SchedulerConfig) -> str | None:
     settings: Settings = get_settings()
+
+    # 락 획득 직후 같은 날짜 다이제스트가 이미 생성됐는지 재확인합니다.
+    # 직전 락 보유자(예: startup 스레드)가 막 생성을 완료했을 수 있어, 중복 실행으로 Solar Pro
+    # API 가 두 번 호출되는 것을 막기 위함입니다. 명시적 재생성 경로(/digest/generate API)는
+    # run_pipeline 을 거치지 않으므로 이 가드의 영향을 받지 않습니다.
+    digest_id = f"digest_{run_date:%Y%m%d}"
+    try:
+        if FileDigestStore(settings.digest_data_path).get(digest_id) is not None:
+            logger.info(
+                "스케줄러: 다이제스트가 이미 존재하여 파이프라인 실행을 건너뜁니다 — %s",
+                digest_id,
+            )
+            return digest_id
+    except Exception as exc:
+        logger.warning("스케줄러: 기존 다이제스트 확인 실패, 그대로 진행 — %s (%s)", digest_id, exc)
 
     # 1. 수집
     active_sources = list(config.sources)
