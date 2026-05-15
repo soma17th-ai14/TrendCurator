@@ -375,6 +375,19 @@ def api_post(
         return r.json()
 
 
+def api_put(
+    path: str,
+    payload: dict[str, Any],
+    timeout: int = 60,
+    loading: str | None = None,
+) -> dict[str, Any]:
+    context = st.spinner(loading) if loading else nullcontext()
+    with context:
+        r = requests.put(f"{API_BASE_URL}{path}", json=payload, timeout=timeout)
+        r.raise_for_status()
+        return r.json()
+
+
 def error_msg(payload: dict[str, Any], fallback: str = "오류가 발생했습니다.") -> str:
     err = payload.get("error")
     if isinstance(err, dict):
@@ -547,7 +560,7 @@ if st.session_state.show_settings:
                 if st.form_submit_button("저장", type="primary"):
                     keywords = [k.strip() for k in keywords_raw.split(",") if k.strip()]
                     try:
-                        result = api_post(
+                        result = api_put(
                             f"{API_PREFIX}/profile",
                             {
                                 "keywords": keywords,
